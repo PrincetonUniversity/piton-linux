@@ -437,6 +437,19 @@ config UBOOT_ENTRY_ADDR
 endmenu
 endif
 
+config OPENSPARC_T1_FPGA
+	bool "OpenSPARC T1 on FPGA"
+	depends on SPARC64
+	default n
+	---help---
+	 This enables the kernel to support an OpenSPARC T1 core running
+	 on an FPGA.  These changes will interfere with the normal SPARC
+	 kernel and this option should only be used for kernels compiled
+	 for OpenSPARC running on an FPGA platform.
+
+	 If unsure, say N.  Only say Y if you are compiling for an
+	 OpenSPARC system running on an FPGA.
+
 endmenu
 
 menu "Bus options (PCI etc.)"
