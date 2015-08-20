@@ -77,6 +77,15 @@ config SUNVNET
 	---help---
 	  Support for virtual network devices under Sun Logical Domains.
 
+config OPENSPARC_NET
+	tristate "OpenSPARC T1 FPGA sunhv_net Network Driver"
+	depends on SPARC
+	default n
+	---help---
+	  Support for networking on the OpenSPARC T1 FPGA Platform.
+
+	  If you aren't running on an OpenSPARC T1 FPGA Platform, say no.
+
 config NIU
 	tristate "Sun Neptune 10Gbit Ethernet support"
 	depends on PCI
