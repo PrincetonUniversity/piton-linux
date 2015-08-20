@@ -485,6 +485,15 @@ config SUNVDC
 	  Support for virtual disk devices as a client under Sun
 	  Logical Domains.
 
+config OPENSPARC_RAMDISK
+	tristate "OpenSPARC T1 FPGA sunhv_disk ramdisk device driver"
+	depends on SPARC
+	default n
+	help
+	  Support for the ramdisk on the OpenSPARC T1 FPGA Platform.
+
+	  If you aren't running on an OpenSPARC T1 FPGA Platform, say no.
+
 source "drivers/s390/block/Kconfig"
 
 config XILINX_SYSACE
