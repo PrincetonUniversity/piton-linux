@@ -43,7 +43,7 @@ static char *con_read_page;
 
 #ifdef CONFIG_OPENSPARC_T1_FPGA
 
-static int sunhv_console_polling_period = 5;
+static int sunhv_console_polling_period = 1;
 
 static int __init setup_sunhv_console_polling_period(char *str)
 {
