@@ -43,7 +43,7 @@ static char *con_read_page;
 
 #ifdef CONFIG_OPENSPARC_T1_FPGA
 
-static int sunhv_console_polling_period = 1;
+static int sunhv_console_polling_period = 5;
 
 static int __init setup_sunhv_console_polling_period(char *str)
 {
@@ -60,11 +60,18 @@ static int hung_up = 0;
 
 static void transmit_chars_putchar(struct uart_port *port, struct circ_buf *xmit)
 {
+	int retry_count = 50;
+
 	while (!uart_circ_empty(xmit)) {
 		long status = sun4v_con_putchar(xmit->buf[xmit->tail]);
 
-		if (status != HV_EOK)
-			break;
+		if (status != HV_EOK) {
+			if (retry_count-- < 0) {
+				break;
+			}
+			udelay(50);
+			continue;
+		}
 
 		xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
 		port->icount.tx++;
@@ -73,6 +80,8 @@ static void transmit_chars_putchar(struct uart_port *port, struct circ_buf *xmit
 
 static void transmit_chars_write(struct uart_port *port, struct circ_buf *xmit)
 {
+	int retry_count = 50;
+
 	while (!uart_circ_empty(xmit)) {
 		unsigned long ra = __pa(xmit->buf + xmit->tail);
 		unsigned long len, status, sent;
@@ -80,8 +89,13 @@ static void transmit_chars_write(struct uart_port *port, struct circ_buf *xmit)
 		len = CIRC_CNT_TO_END(xmit->head, xmit->tail,
 				      UART_XMIT_SIZE);
 		status = sun4v_con_write(ra, len, &sent);
-		if (status != HV_EOK)
-			break;
+		if (status != HV_EOK) {
+			if (retry_count-- < 0) {
+				break;
+			}
+			udelay(50);
+			continue;
+		}
 		xmit->tail = (xmit->tail + sent) & (UART_XMIT_SIZE - 1);
 		port->icount.tx += sent;
 	}
