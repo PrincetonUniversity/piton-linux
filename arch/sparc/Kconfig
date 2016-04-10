@@ -450,6 +450,13 @@ config OPENSPARC_T1_FPGA
 	 If unsure, say N.  Only say Y if you are compiling for an
 	 OpenSPARC system running on an FPGA.
 
+config OPENPITON_MITTS
+	bool "Support for OpenPiton's MITTS Module"
+	default n
+	depends on OPENSPARC_T1_FPGA
+	help
+	  Say Y here to enable OpenPiton's MITTS module.
+
 endmenu
 
 menu "Bus options (PCI etc.)"

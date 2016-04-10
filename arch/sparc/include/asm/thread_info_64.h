@@ -61,6 +61,7 @@ struct thread_info {
 
 	unsigned long		fpregs[(7 * 256) / sizeof(unsigned long)]
 		__attribute__ ((aligned(64)));
+	unsigned long           mitts_cfg[2];
 };
 
 #endif /* !(__ASSEMBLY__) */
@@ -90,6 +91,7 @@ struct thread_info {
 #define TI_KUNA_REGS	0x00000468
 #define TI_KUNA_INSN	0x00000470
 #define TI_FPREGS	0x00000480
+#define TI_MITTS_CFG	0x00000B80
 
 /* We embed this in the uppermost byte of thread_info->flags */
 #define FAULT_CODE_WRITE	0x01	/* Write access, implies D-TLB	   */
@@ -117,6 +119,7 @@ struct thread_info {
 	.task		=	&tsk,			\
 	.current_ds	=	ASI_P,			\
 	.preempt_count	=	INIT_PREEMPT_COUNT,	\
+	.mitts_cfg	=	{0,0},			\
 }
 
 #define init_thread_info	(init_thread_union.thread_info)
