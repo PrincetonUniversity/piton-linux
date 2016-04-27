@@ -15,8 +15,10 @@
  */
 #ifdef CONFIG_OPENPITON_MITTS
 extern int mitts_write_config(unsigned long, unsigned long);
+extern int mitts_start(void);
 #else
 static inline int mitts_write_config(unsigned long r1, unsigned long r2) { return 0; }
+static inline int mitts_start(void) { return 0; }
 #endif /* CONFIG_OPENPITON_MITTS */
 
 #endif /* !__ASSEMBLY__ */

@@ -78,6 +78,7 @@ union bpf_attr;
 #include <linux/unistd.h>
 #include <linux/quota.h>
 #include <linux/key.h>
+#include <linux/mitts.h>
 #include <trace/syscall.h>
 
 /*
@@ -883,5 +884,8 @@ asmlinkage long sys_bpf(int cmd, union bpf_attr *attr, unsigned int size);
 asmlinkage long sys_execveat(int dfd, const char __user *filename,
 			const char __user *const __user *argv,
 			const char __user *const __user *envp, int flags);
+
+asmlinkage long sys_mitts_setcfg(int which, int who, struct mitts_cfg __user *cfg);
+asmlinkage long sys_mitts_getcfg(int which, int who, struct mitts_cfg __user *cfg);
 
 #endif

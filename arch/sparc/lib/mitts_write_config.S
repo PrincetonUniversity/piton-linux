@@ -5,6 +5,7 @@
  */
 
 #define SUNHV_SET_MITTS_REGS 0x2C
+#define SUNHV_START_MITTS 0x2D
 
 #define SUNHV_FAST_TRAP 0x80
 
@@ -13,6 +14,14 @@
 	.globl	mitts_write_config
 mitts_write_config:
 	mov	SUNHV_SET_MITTS_REGS, %o5
+	ta	SUNHV_FAST_TRAP
+	retl
+	 nop
+
+	.align	32
+	.globl	mitts_start
+ mitts_start:
+	mov	SUNHV_START_MITTS, %o5
 	ta	SUNHV_FAST_TRAP
 	retl
 	 nop

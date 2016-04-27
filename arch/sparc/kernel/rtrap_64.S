@@ -13,6 +13,7 @@
 #include <asm/head.h>
 #include <asm/visasm.h>
 #include <asm/processor.h>
+#include <asm/mitts.h>
 
 #define		RTRAP_PSTATE		(PSTATE_TSO|PSTATE_PEF|PSTATE_PRIV|PSTATE_IE)
 #define		RTRAP_PSTATE_IRQOFF	(PSTATE_TSO|PSTATE_PEF|PSTATE_PRIV)
@@ -150,7 +151,16 @@ user_nowork:
 		 stb			%g0, [%g6 + TI_FPDEPTH]
 __handle_userfpu_continue:
 
-rt_continue:	ldx			[%sp + PTREGS_OFF + PT_V9_G1], %g1
+rt_continue:
+#ifdef CONFIG_OPENPITON_MITTS
+		ldx			[%g6 + TI_MITTS_CFG], %g2
+		and			%g2, 0x1, %g2
+		brz,pt			%g2, no_mitts
+		 nop
+		call			mitts_start
+no_mitts:
+#endif
+		ldx			[%sp + PTREGS_OFF + PT_V9_G1], %g1
 		ldx			[%sp + PTREGS_OFF + PT_V9_G2], %g2
 
 		ldx			[%sp + PTREGS_OFF + PT_V9_G3], %g3
