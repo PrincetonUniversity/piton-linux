@@ -55,8 +55,10 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
 		phy = phy_device_create(mdio, addr, phy_id, 0, NULL);
 	else
 		phy = get_phy_device(mdio, addr, is_c45);
-	if (!phy || IS_ERR(phy))
+	if (!phy || IS_ERR(phy)) {
+	    dev_info(&mdio->dev, "no phy or phy in error\n");
 		return 1;
+    }
 
 	rc = irq_of_parse_and_map(child, 0);
 	if (rc > 0) {
@@ -82,7 +84,7 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
 		return 1;
 	}
 
-	dev_dbg(&mdio->dev, "registered phy %s at address %i\n",
+	dev_info(&mdio->dev, "registered phy %s at address %i\n",
 		child->name, addr);
 
 	return 0;
@@ -150,8 +152,11 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
 		}
 
 		rc = of_mdiobus_register_phy(mdio, child, addr);
-		if (rc)
+		if (rc) {
+            dev_info(&mdio->dev, "no luck with this child\n");
 			continue;
+        }
+        dev_info(&mdio->dev, "success with this child\n");
 	}
 
 	if (!scanphys)
