@@ -547,7 +547,7 @@ static struct clk *ve_spc_clk_register(struct device *cpu_dev)
 
 	init.name = dev_name(cpu_dev);
 	init.ops = &clk_spc_ops;
-	init.flags = CLK_IS_ROOT | CLK_GET_RATE_NOCACHE;
+	init.flags = CLK_GET_RATE_NOCACHE;
 	init.num_parents = 0;
 
 	return devm_clk_register(cpu_dev, &spc->hw);
@@ -589,4 +589,4 @@ static int __init ve_spc_clk_init(void)
 	platform_device_register_simple("vexpress-spc-cpufreq", -1, NULL, 0);
 	return 0;
 }
-module_init(ve_spc_clk_init);
+device_initcall(ve_spc_clk_init);

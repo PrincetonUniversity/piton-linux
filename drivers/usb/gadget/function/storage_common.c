@@ -83,9 +83,7 @@ EXPORT_SYMBOL_GPL(fsg_fs_function);
  * USB 2.0 devices need to expose both high speed and full speed
  * descriptors, unless they only run at full speed.
  *
- * That means alternate endpoint descriptors (bigger packets)
- * and a "device qualifier" ... plus more construction options
- * for the configuration descriptor.
+ * That means alternate endpoint descriptors (bigger packets).
  */
 struct usb_endpoint_descriptor fsg_hs_bulk_in_desc = {
 	.bLength =		USB_DT_ENDPOINT_SIZE,
@@ -341,7 +339,7 @@ ssize_t fsg_show_file(struct fsg_lun *curlun, struct rw_semaphore *filesem,
 
 	down_read(filesem);
 	if (fsg_lun_is_open(curlun)) {	/* Get the complete pathname */
-		p = d_path(&curlun->filp->f_path, buf, PAGE_SIZE - 1);
+		p = file_path(curlun->filp, buf, PAGE_SIZE - 1);
 		if (IS_ERR(p))
 			rc = PTR_ERR(p);
 		else {

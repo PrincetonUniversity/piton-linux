@@ -61,6 +61,7 @@ psched_tdiff_bounded(psched_time_t tv1, psched_time_t tv2, psched_time_t bound)
 }
 
 struct qdisc_watchdog {
+	u64		last_expires;
 	struct hrtimer	timer;
 	struct Qdisc	*qdisc;
 };
@@ -110,10 +111,8 @@ static inline void qdisc_run(struct Qdisc *q)
 		__qdisc_run(q);
 }
 
-int tc_classify_compat(struct sk_buff *skb, const struct tcf_proto *tp,
-		       struct tcf_result *res);
 int tc_classify(struct sk_buff *skb, const struct tcf_proto *tp,
-		struct tcf_result *res);
+		struct tcf_result *res, bool compat_mode);
 
 static inline __be16 tc_skb_protocol(const struct sk_buff *skb)
 {

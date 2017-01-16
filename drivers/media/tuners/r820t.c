@@ -941,8 +941,8 @@ static int r820t_sysfreq_sel(struct r820t_priv *priv, u32 freq,
 		rc = r820t_write_reg_mask(priv, 0x10, 0x00, 0x04);
 		if (rc < 0)
 			return rc;
-	 }
-	 return 0;
+	}
+	return 0;
 }
 
 static int r820t_set_tv_standard(struct r820t_priv *priv,
@@ -1295,7 +1295,7 @@ static int generic_set_freq(struct dvb_frontend *fe,
 			    v4l2_std_id std, u32 delsys)
 {
 	struct r820t_priv		*priv = fe->tuner_priv;
-	int				rc = -EINVAL;
+	int				rc;
 	u32				lo_freq;
 
 	tuner_dbg("should set frequency to %d kHz, bw %d MHz\n",

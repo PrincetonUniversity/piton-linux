@@ -41,6 +41,7 @@
 #include "xfs_buf_item.h"
 #include "xfs_cksum.h"
 #include "xfs_dir2.h"
+#include "xfs_log.h"
 
 
 /*
@@ -262,9 +263,11 @@ xfs_attr3_leaf_verify(
 		if (ichdr.magic != XFS_ATTR3_LEAF_MAGIC)
 			return false;
 
-		if (!uuid_equal(&hdr3->info.uuid, &mp->m_sb.sb_uuid))
+		if (!uuid_equal(&hdr3->info.uuid, &mp->m_sb.sb_meta_uuid))
 			return false;
 		if (be64_to_cpu(hdr3->info.blkno) != bp->b_bn)
+			return false;
+		if (!xfs_log_check_lsn(mp, be64_to_cpu(hdr3->info.lsn)))
 			return false;
 	} else {
 		if (ichdr.magic != XFS_ATTR_LEAF_MAGIC)
@@ -325,6 +328,7 @@ xfs_attr3_leaf_read_verify(
 }
 
 const struct xfs_buf_ops xfs_attr3_leaf_buf_ops = {
+	.name = "xfs_attr3_leaf",
 	.verify_read = xfs_attr3_leaf_read_verify,
 	.verify_write = xfs_attr3_leaf_write_verify,
 };
@@ -1056,7 +1060,7 @@ xfs_attr3_leaf_create(
 
 		hdr3->blkno = cpu_to_be64(bp->b_bn);
 		hdr3->owner = cpu_to_be64(dp->i_ino);
-		uuid_copy(&hdr3->uuid, &mp->m_sb.sb_uuid);
+		uuid_copy(&hdr3->uuid, &mp->m_sb.sb_meta_uuid);
 
 		ichdr.freemap[0].base = sizeof(struct xfs_attr3_leaf_hdr);
 	} else {

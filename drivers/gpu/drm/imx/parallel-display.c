@@ -21,6 +21,7 @@
 #include <drm/drm_panel.h>
 #include <linux/videodev2.h>
 #include <video/of_display_timing.h>
+#include <linux/of_graph.h>
 
 #include "imx-drm.h"
 
@@ -34,7 +35,6 @@ struct imx_parallel_display {
 	void *edid;
 	int edid_len;
 	u32 bus_format;
-	int mode_valid;
 	struct drm_display_mode mode;
 	struct drm_panel *panel;
 };
@@ -53,7 +53,11 @@ static int imx_pd_connector_get_modes(struct drm_connector *connector)
 
 	if (imxpd->panel && imxpd->panel->funcs &&
 	    imxpd->panel->funcs->get_modes) {
+		struct drm_display_info *di = &connector->display_info;
+
 		num_modes = imxpd->panel->funcs->get_modes(imxpd->panel);
+		if (!imxpd->bus_format && di->num_bus_formats)
+			imxpd->bus_format = di->bus_formats[0];
 		if (num_modes > 0)
 			return num_modes;
 	}
@@ -61,17 +65,6 @@ static int imx_pd_connector_get_modes(struct drm_connector *connector)
 	if (imxpd->edid) {
 		drm_mode_connector_update_edid_property(connector, imxpd->edid);
 		num_modes = drm_add_edid_modes(connector, imxpd->edid);
-	}
-
-	if (imxpd->mode_valid) {
-		struct drm_display_mode *mode = drm_mode_create(connector->dev);
-
-		if (!mode)
-			return -EINVAL;
-		drm_mode_copy(mode, &imxpd->mode);
-		mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED,
-		drm_mode_probed_add(connector, mode);
-		num_modes++;
 	}
 
 	if (np) {
@@ -107,18 +100,11 @@ static void imx_pd_encoder_dpms(struct drm_encoder *encoder, int mode)
 		drm_panel_enable(imxpd->panel);
 }
 
-static bool imx_pd_encoder_mode_fixup(struct drm_encoder *encoder,
-			   const struct drm_display_mode *mode,
-			   struct drm_display_mode *adjusted_mode)
-{
-	return true;
-}
-
 static void imx_pd_encoder_prepare(struct drm_encoder *encoder)
 {
 	struct imx_parallel_display *imxpd = enc_to_imxpd(encoder);
-
-	imx_drm_set_bus_format(encoder, imxpd->bus_format);
+	imx_drm_set_bus_config(encoder, imxpd->bus_format, 2, 3,
+			       imxpd->connector.display_info.bus_flags);
 }
 
 static void imx_pd_encoder_commit(struct drm_encoder *encoder)
@@ -143,25 +129,24 @@ static void imx_pd_encoder_disable(struct drm_encoder *encoder)
 	drm_panel_unprepare(imxpd->panel);
 }
 
-static struct drm_connector_funcs imx_pd_connector_funcs = {
+static const struct drm_connector_funcs imx_pd_connector_funcs = {
 	.dpms = drm_helper_connector_dpms,
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.detect = imx_pd_connector_detect,
 	.destroy = imx_drm_connector_destroy,
 };
 
-static struct drm_connector_helper_funcs imx_pd_connector_helper_funcs = {
+static const struct drm_connector_helper_funcs imx_pd_connector_helper_funcs = {
 	.get_modes = imx_pd_connector_get_modes,
 	.best_encoder = imx_pd_connector_best_encoder,
 };
 
-static struct drm_encoder_funcs imx_pd_encoder_funcs = {
+static const struct drm_encoder_funcs imx_pd_encoder_funcs = {
 	.destroy = imx_drm_encoder_destroy,
 };
 
-static struct drm_encoder_helper_funcs imx_pd_encoder_helper_funcs = {
+static const struct drm_encoder_helper_funcs imx_pd_encoder_helper_funcs = {
 	.dpms = imx_pd_encoder_dpms,
-	.mode_fixup = imx_pd_encoder_mode_fixup,
 	.prepare = imx_pd_encoder_prepare,
 	.commit = imx_pd_encoder_commit,
 	.mode_set = imx_pd_encoder_mode_set,
@@ -187,7 +172,7 @@ static int imx_pd_register(struct drm_device *drm,
 
 	drm_encoder_helper_add(&imxpd->encoder, &imx_pd_encoder_helper_funcs);
 	drm_encoder_init(drm, &imxpd->encoder, &imx_pd_encoder_funcs,
-			 DRM_MODE_ENCODER_NONE);
+			 DRM_MODE_ENCODER_NONE, NULL);
 
 	drm_connector_helper_add(&imxpd->connector,
 			&imx_pd_connector_helper_funcs);
@@ -199,8 +184,6 @@ static int imx_pd_register(struct drm_device *drm,
 
 	drm_mode_connector_attach_encoder(&imxpd->connector, &imxpd->encoder);
 
-	imxpd->connector.encoder = &imxpd->encoder;
-
 	return 0;
 }
 
@@ -208,7 +191,7 @@ static int imx_pd_bind(struct device *dev, struct device *master, void *data)
 {
 	struct drm_device *drm = data;
 	struct device_node *np = dev->of_node;
-	struct device_node *panel_node;
+	struct device_node *ep;
 	const u8 *edidp;
 	struct imx_parallel_display *imxpd;
 	int ret;
@@ -234,9 +217,17 @@ static int imx_pd_bind(struct device *dev, struct device *master, void *data)
 			imxpd->bus_format = MEDIA_BUS_FMT_RGB666_1X24_CPADHI;
 	}
 
-	panel_node = of_parse_phandle(np, "fsl,panel", 0);
-	if (panel_node) {
-		imxpd->panel = of_drm_find_panel(panel_node);
+	/* port@1 is the output port */
+	ep = of_graph_get_endpoint_by_regs(np, 1, -1);
+	if (ep) {
+		struct device_node *remote;
+
+		remote = of_graph_get_remote_port_parent(ep);
+		of_node_put(ep);
+		if (remote) {
+			imxpd->panel = of_drm_find_panel(remote);
+			of_node_put(remote);
+		}
 		if (!imxpd->panel)
 			return -EPROBE_DEFER;
 	}

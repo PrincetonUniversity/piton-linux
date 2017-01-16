@@ -29,7 +29,7 @@
 #include <asm/kexec.h>
 #include <asm/ppc-opcode.h>
 
-#include <misc/cxl.h>
+#include <misc/cxl-base.h>
 
 #ifdef DEBUG_LOW
 #define DBG_LOW(fmt...) udbg_printf(fmt)
@@ -221,7 +221,7 @@ static long native_hpte_insert(unsigned long hpte_group, unsigned long vpn,
 		return -1;
 
 	hpte_v = hpte_encode_v(vpn, psize, apsize, ssize) | vflags | HPTE_V_VALID;
-	hpte_r = hpte_encode_r(pa, psize, apsize) | rflags;
+	hpte_r = hpte_encode_r(pa, psize, apsize, ssize) | rflags;
 
 	if (!(vflags & HPTE_V_BOLTED)) {
 		DBG_LOW(" i=%x hpte_v=%016lx, hpte_r=%016lx\n",
@@ -316,8 +316,8 @@ static long native_hpte_updatepp(unsigned long slot, unsigned long newpp,
 			DBG_LOW(" -> hit\n");
 			/* Update the HPTE */
 			hptep->r = cpu_to_be64((be64_to_cpu(hptep->r) &
-						~(HPTE_R_PP | HPTE_R_N)) |
-					       (newpp & (HPTE_R_PP | HPTE_R_N |
+						~(HPTE_R_PPP | HPTE_R_N)) |
+					       (newpp & (HPTE_R_PPP | HPTE_R_N |
 							 HPTE_R_C)));
 		}
 		native_unlock_hpte(hptep);
@@ -385,8 +385,8 @@ static void native_hpte_updateboltedpp(unsigned long newpp, unsigned long ea,
 
 	/* Update the HPTE */
 	hptep->r = cpu_to_be64((be64_to_cpu(hptep->r) &
-			~(HPTE_R_PP | HPTE_R_N)) |
-		(newpp & (HPTE_R_PP | HPTE_R_N)));
+				~(HPTE_R_PPP | HPTE_R_N)) |
+			       (newpp & (HPTE_R_PPP | HPTE_R_N)));
 	/*
 	 * Ensure it is out of the tlb too. Bolted entries base and
 	 * actual page size will be same.
@@ -429,6 +429,7 @@ static void native_hpte_invalidate(unsigned long slot, unsigned long vpn,
 	local_irq_restore(flags);
 }
 
+#ifdef CONFIG_TRANSPARENT_HUGEPAGE
 static void native_hugepage_invalidate(unsigned long vsid,
 				       unsigned long addr,
 				       unsigned char *hpte_slot_array,
@@ -482,6 +483,15 @@ static void native_hugepage_invalidate(unsigned long vsid,
 	}
 	local_irq_restore(flags);
 }
+#else
+static void native_hugepage_invalidate(unsigned long vsid,
+				       unsigned long addr,
+				       unsigned char *hpte_slot_array,
+				       int psize, int ssize, int local)
+{
+	WARN(1, "%s called without THP support\n", __func__);
+}
+#endif
 
 static inline int __hpte_actual_psize(unsigned int lp, int psize)
 {
@@ -540,7 +550,11 @@ static void hpte_decode(struct hash_pte *hpte, unsigned long slot,
 		}
 	}
 	/* This works for all page sizes, and for 256M and 1T segments */
-	*ssize = hpte_v >> HPTE_V_SSIZE_SHIFT;
+	if (cpu_has_feature(CPU_FTR_ARCH_300))
+		*ssize = hpte_r >> HPTE_R_3_0_SSIZE_SHIFT;
+	else
+		*ssize = hpte_v >> HPTE_V_SSIZE_SHIFT;
+
 	shift = mmu_psize_defs[size].shift;
 
 	avpn = (HPTE_V_AVPN_VAL(hpte_v) & ~mmu_psize_defs[size].avpnm);
@@ -582,26 +596,27 @@ static void hpte_decode(struct hash_pte *hpte, unsigned long slot,
  * be when they isi), and we are the only one left.  We rely on our kernel
  * mapping being 0xC0's and the hardware ignoring those two real bits.
  *
+ * This must be called with interrupts disabled.
+ *
+ * Taking the native_tlbie_lock is unsafe here due to the possibility of
+ * lockdep being on. On pre POWER5 hardware, not taking the lock could
+ * cause deadlock. POWER5 and newer not taking the lock is fine. This only
+ * gets called during boot before secondary CPUs have come up and during
+ * crashdump and all bets are off anyway.
+ *
  * TODO: add batching support when enabled.  remember, no dynamic memory here,
  * athough there is the control page available...
  */
 static void native_hpte_clear(void)
 {
 	unsigned long vpn = 0;
-	unsigned long slot, slots, flags;
+	unsigned long slot, slots;
 	struct hash_pte *hptep = htab_address;
 	unsigned long hpte_v;
 	unsigned long pteg_count;
 	int psize, apsize, ssize;
 
 	pteg_count = htab_hash_mask + 1;
-
-	local_irq_save(flags);
-
-	/* we take the tlbie lock and hold it.  Some hardware will
-	 * deadlock if we try to tlbie from two processors at once.
-	 */
-	raw_spin_lock(&native_tlbie_lock);
 
 	slots = pteg_count * HPTES_PER_GROUP;
 
@@ -614,8 +629,8 @@ static void native_hpte_clear(void)
 		hpte_v = be64_to_cpu(hptep->v);
 
 		/*
-		 * Call __tlbie() here rather than tlbie() since we
-		 * already hold the native_tlbie_lock.
+		 * Call __tlbie() here rather than tlbie() since we can't take the
+		 * native_tlbie_lock.
 		 */
 		if (hpte_v & HPTE_V_VALID) {
 			hpte_decode(hptep, slot, &psize, &apsize, &ssize, &vpn);
@@ -625,8 +640,6 @@ static void native_hpte_clear(void)
 	}
 
 	asm volatile("eieio; tlbsync; ptesync":::"memory");
-	raw_spin_unlock(&native_tlbie_lock);
-	local_irq_restore(flags);
 }
 
 /*
@@ -710,6 +723,12 @@ static void native_flush_hash_range(unsigned long number, int local)
 	local_irq_restore(flags);
 }
 
+static int native_update_partition_table(u64 patb1)
+{
+	partition_tb->patb1 = cpu_to_be64(patb1);
+	return 0;
+}
+
 void __init hpte_init_native(void)
 {
 	ppc_md.hpte_invalidate	= native_hpte_invalidate;
@@ -720,4 +739,7 @@ void __init hpte_init_native(void)
 	ppc_md.hpte_clear_all	= native_hpte_clear;
 	ppc_md.flush_hash_range = native_flush_hash_range;
 	ppc_md.hugepage_invalidate   = native_hugepage_invalidate;
+
+	if (cpu_has_feature(CPU_FTR_ARCH_300))
+		ppc_md.update_partition_table = native_update_partition_table;
 }

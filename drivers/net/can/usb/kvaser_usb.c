@@ -59,11 +59,14 @@
 #define USB_CAN_R_PRODUCT_ID		39
 #define USB_LEAF_LITE_V2_PRODUCT_ID	288
 #define USB_MINI_PCIE_HS_PRODUCT_ID	289
+#define USB_LEAF_LIGHT_HS_V2_OEM_PRODUCT_ID 290
+#define USB_USBCAN_LIGHT_2HS_PRODUCT_ID	291
+#define USB_MINI_PCIE_2HS_PRODUCT_ID	292
 
 static inline bool kvaser_is_leaf(const struct usb_device_id *id)
 {
 	return id->idProduct >= USB_LEAF_DEVEL_PRODUCT_ID &&
-	       id->idProduct <= USB_MINI_PCIE_HS_PRODUCT_ID;
+	       id->idProduct <= USB_MINI_PCIE_2HS_PRODUCT_ID;
 }
 
 /* Kvaser USBCan-II devices */
@@ -537,6 +540,9 @@ static const struct usb_device_id kvaser_usb_table[] = {
 		.driver_info = KVASER_HAS_TXRX_ERRORS },
 	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_LITE_V2_PRODUCT_ID) },
 	{ USB_DEVICE(KVASER_VENDOR_ID, USB_MINI_PCIE_HS_PRODUCT_ID) },
+	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_LIGHT_HS_V2_OEM_PRODUCT_ID) },
+	{ USB_DEVICE(KVASER_VENDOR_ID, USB_USBCAN_LIGHT_2HS_PRODUCT_ID) },
+	{ USB_DEVICE(KVASER_VENDOR_ID, USB_MINI_PCIE_2HS_PRODUCT_ID) },
 
 	/* USBCANII family IDs */
 	{ USB_DEVICE(KVASER_VENDOR_ID, USB_USBCAN2_PRODUCT_ID),
@@ -944,10 +950,9 @@ static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
 			cf->can_id |= CAN_ERR_BUSERROR | CAN_ERR_PROT;
 
 			if (es->leaf.error_factor & M16C_EF_ACKE)
-				cf->data[3] |= (CAN_ERR_PROT_LOC_ACK);
+				cf->data[3] = CAN_ERR_PROT_LOC_ACK;
 			if (es->leaf.error_factor & M16C_EF_CRCE)
-				cf->data[3] |= (CAN_ERR_PROT_LOC_CRC_SEQ |
-						CAN_ERR_PROT_LOC_CRC_DEL);
+				cf->data[3] = CAN_ERR_PROT_LOC_CRC_SEQ;
 			if (es->leaf.error_factor & M16C_EF_FORME)
 				cf->data[2] |= CAN_ERR_PROT_FORM;
 			if (es->leaf.error_factor & M16C_EF_STFE)

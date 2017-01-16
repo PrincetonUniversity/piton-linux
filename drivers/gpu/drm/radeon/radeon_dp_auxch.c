@@ -105,7 +105,7 @@ radeon_dp_aux_transfer_native(struct drm_dp_aux *aux, struct drm_dp_aux_msg *msg
 
 	tmp &= AUX_HPD_SEL(0x7);
 	tmp |= AUX_HPD_SEL(chan->rec.hpd);
-	tmp |= AUX_EN | AUX_LS_READ_EN;
+	tmp |= AUX_EN | AUX_LS_READ_EN | AUX_HPD_DISCON(0x1);
 
 	WREG32(AUX_CONTROL + aux_offset[instance], tmp);
 
@@ -116,8 +116,8 @@ radeon_dp_aux_transfer_native(struct drm_dp_aux *aux, struct drm_dp_aux_msg *msg
 	       AUX_SW_WR_BYTES(bytes));
 
 	/* write the data header into the registers */
-	/* request, addres, msg size */
-	byte = (msg->request << 4);
+	/* request, address, msg size */
+	byte = (msg->request << 4) | ((msg->address >> 16) & 0xf);
 	WREG32(AUX_SW_DATA + aux_offset[instance],
 	       AUX_SW_DATA_MASK(byte) | AUX_SW_AUTOINCREMENT_DISABLE);
 

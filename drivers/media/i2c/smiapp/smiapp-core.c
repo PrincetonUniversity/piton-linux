@@ -188,6 +188,8 @@ static int smiapp_read_frame_fmt(struct smiapp_sensor *sensor)
 		embedded_end = 0;
 	}
 
+	sensor->image_start = image_start;
+
 	dev_dbg(&client->dev, "embedded data from lines %d to %d\n",
 		embedded_start, embedded_end);
 	dev_dbg(&client->dev, "image data starts at line %d\n", image_start);
@@ -2280,6 +2282,15 @@ static int smiapp_get_skip_frames(struct v4l2_subdev *subdev, u32 *frames)
 	return 0;
 }
 
+static int smiapp_get_skip_top_lines(struct v4l2_subdev *subdev, u32 *lines)
+{
+	struct smiapp_sensor *sensor = to_smiapp_sensor(subdev);
+
+	*lines = sensor->image_start;
+
+	return 0;
+}
+
 /* -----------------------------------------------------------------------------
  * sysfs attributes
  */
@@ -2487,23 +2498,11 @@ static int smiapp_register_subdevs(struct smiapp_sensor *sensor)
 		if (!last)
 			continue;
 
-		rval = media_entity_init(&this->sd.entity,
-					 this->npads, this->pads, 0);
+		rval = media_entity_pads_init(&this->sd.entity,
+					 this->npads, this->pads);
 		if (rval) {
 			dev_err(&client->dev,
-				"media_entity_init failed\n");
-			return rval;
-		}
-
-		rval = media_entity_create_link(&this->sd.entity,
-						this->source_pad,
-						&last->sd.entity,
-						last->sink_pad,
-						MEDIA_LNK_FL_ENABLED |
-						MEDIA_LNK_FL_IMMUTABLE);
-		if (rval) {
-			dev_err(&client->dev,
-				"media_entity_create_link failed\n");
+				"media_entity_pads_init failed\n");
 			return rval;
 		}
 
@@ -2512,6 +2511,18 @@ static int smiapp_register_subdevs(struct smiapp_sensor *sensor)
 		if (rval) {
 			dev_err(&client->dev,
 				"v4l2_device_register_subdev failed\n");
+			return rval;
+		}
+
+		rval = media_create_pad_link(&this->sd.entity,
+					     this->source_pad,
+					     &last->sd.entity,
+					     last->sink_pad,
+					     MEDIA_LNK_FL_ENABLED |
+					     MEDIA_LNK_FL_IMMUTABLE);
+		if (rval) {
+			dev_err(&client->dev,
+				"media_create_pad_link failed\n");
 			return rval;
 		}
 	}
@@ -2763,7 +2774,7 @@ static int smiapp_init(struct smiapp_sensor *sensor)
 
 	dev_dbg(&client->dev, "profile %d\n", sensor->minfo.smiapp_profile);
 
-	sensor->pixel_array->sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV_SENSOR;
+	sensor->pixel_array->sd.entity.function = MEDIA_ENT_F_CAM_SENSOR;
 
 	/* final steps */
 	smiapp_read_frame_fmt(sensor);
@@ -2890,6 +2901,7 @@ static const struct v4l2_subdev_pad_ops smiapp_pad_ops = {
 
 static const struct v4l2_subdev_sensor_ops smiapp_sensor_ops = {
 	.g_skip_frames = smiapp_get_skip_frames,
+	.g_skip_top_lines = smiapp_get_skip_top_lines,
 };
 
 static const struct v4l2_subdev_ops smiapp_ops = {
@@ -2975,9 +2987,9 @@ static int smiapp_resume(struct device *dev)
 static struct smiapp_platform_data *smiapp_get_pdata(struct device *dev)
 {
 	struct smiapp_platform_data *pdata;
-	struct v4l2_of_endpoint bus_cfg;
+	struct v4l2_of_endpoint *bus_cfg;
 	struct device_node *ep;
-	uint32_t asize;
+	int i;
 	int rval;
 
 	if (!dev->of_node)
@@ -2987,13 +2999,15 @@ static struct smiapp_platform_data *smiapp_get_pdata(struct device *dev)
 	if (!ep)
 		return NULL;
 
+	bus_cfg = v4l2_of_alloc_parse_endpoint(ep);
+	if (IS_ERR(bus_cfg))
+		goto out_err;
+
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
 		goto out_err;
 
-	v4l2_of_parse_endpoint(ep, &bus_cfg);
-
-	switch (bus_cfg.bus_type) {
+	switch (bus_cfg->bus_type) {
 	case V4L2_MBUS_CSI2:
 		pdata->csi_signalling_mode = SMIAPP_CSI_SIGNALLING_MODE_CSI2;
 		break;
@@ -3002,7 +3016,7 @@ static struct smiapp_platform_data *smiapp_get_pdata(struct device *dev)
 		goto out_err;
 	}
 
-	pdata->lanes = bus_cfg.bus.mipi_csi2.num_data_lanes;
+	pdata->lanes = bus_cfg->bus.mipi_csi2.num_data_lanes;
 	dev_dbg(dev, "lanes %u\n", pdata->lanes);
 
 	/* xshutdown GPIO is optional */
@@ -3022,34 +3036,30 @@ static struct smiapp_platform_data *smiapp_get_pdata(struct device *dev)
 	dev_dbg(dev, "reset %d, nvm %d, clk %d, csi %d\n", pdata->xshutdown,
 		pdata->nvm_size, pdata->ext_clk, pdata->csi_signalling_mode);
 
-	rval = of_get_property(ep, "link-frequencies", &asize) ? 0 : -ENOENT;
-	if (rval) {
-		dev_warn(dev, "can't get link-frequencies array size\n");
+	if (!bus_cfg->nr_of_link_frequencies) {
+		dev_warn(dev, "no link frequencies defined\n");
 		goto out_err;
 	}
 
-	pdata->op_sys_clock = devm_kzalloc(dev, asize, GFP_KERNEL);
+	pdata->op_sys_clock = devm_kcalloc(
+		dev, bus_cfg->nr_of_link_frequencies + 1 /* guardian */,
+		sizeof(*pdata->op_sys_clock), GFP_KERNEL);
 	if (!pdata->op_sys_clock) {
 		rval = -ENOMEM;
 		goto out_err;
 	}
 
-	asize /= sizeof(*pdata->op_sys_clock);
-	rval = of_property_read_u64_array(
-		ep, "link-frequencies", pdata->op_sys_clock, asize);
-	if (rval) {
-		dev_warn(dev, "can't get link-frequencies\n");
-		goto out_err;
+	for (i = 0; i < bus_cfg->nr_of_link_frequencies; i++) {
+		pdata->op_sys_clock[i] = bus_cfg->link_frequencies[i];
+		dev_dbg(dev, "freq %d: %lld\n", i, pdata->op_sys_clock[i]);
 	}
 
-	for (; asize > 0; asize--)
-		dev_dbg(dev, "freq %d: %lld\n", asize - 1,
-			pdata->op_sys_clock[asize - 1]);
-
+	v4l2_of_free_endpoint(bus_cfg);
 	of_node_put(ep);
 	return pdata;
 
 out_err:
+	v4l2_of_free_endpoint(bus_cfg);
 	of_node_put(ep);
 	return NULL;
 }
@@ -3079,8 +3089,8 @@ static int smiapp_probe(struct i2c_client *client,
 	sensor->src->sensor = sensor;
 
 	sensor->src->pads[0].flags = MEDIA_PAD_FL_SOURCE;
-	rval = media_entity_init(&sensor->src->sd.entity, 2,
-				 sensor->src->pads, 0);
+	rval = media_entity_pads_init(&sensor->src->sd.entity, 2,
+				 sensor->src->pads);
 	if (rval < 0)
 		return rval;
 
@@ -3133,6 +3143,7 @@ static const struct of_device_id smiapp_of_table[] = {
 	{ .compatible = "nokia,smia" },
 	{ },
 };
+MODULE_DEVICE_TABLE(of, smiapp_of_table);
 
 static const struct i2c_device_id smiapp_id_table[] = {
 	{ SMIAPP_NAME, 0 },

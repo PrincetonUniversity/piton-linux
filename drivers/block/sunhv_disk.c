@@ -119,7 +119,7 @@ static void sunhv_disk_make_request(struct request_queue *queue, struct bio *bio
 	total_len   += bvec.bv_len;
     }
 
-    bio_endio(bio, result);
+    bio_endio(bio);//, result);
 }
 
 

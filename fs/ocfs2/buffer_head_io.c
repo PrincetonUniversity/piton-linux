@@ -139,11 +139,16 @@ int ocfs2_read_blocks_sync(struct ocfs2_super *osb, u64 block,
 
 		lock_buffer(bh);
 		if (buffer_jbd(bh)) {
+#ifdef CATCH_BH_JBD_RACES
 			mlog(ML_ERROR,
 			     "block %llu had the JBD bit set "
 			     "while I was in lock_buffer!",
 			     (unsigned long long)bh->b_blocknr);
 			BUG();
+#else
+			unlock_buffer(bh);
+			continue;
+#endif
 		}
 
 		clear_buffer_uptodate(bh);
@@ -316,6 +321,12 @@ int ocfs2_read_blocks(struct ocfs2_caching_info *ci, u64 block, int nr,
 		bh = bhs[i];
 
 		if (!(flags & OCFS2_BH_READAHEAD)) {
+			if (status) {
+				/* Clear the rest of the buffers on error */
+				put_bh(bh);
+				bhs[i] = NULL;
+				continue;
+			}
 			/* We know this can't have changed as we hold the
 			 * owner sem. Avoid doing any work on the bh if the
 			 * journal has it. */

@@ -45,12 +45,19 @@ extern int smp_ipi_irq_setup(int cpu, int irq);
  * struct plat_smp_ops	- SMP callbacks provided by platform to ARC SMP
  *
  * @info:		SoC SMP specific info for /proc/cpuinfo etc
+ * @init_early_smp:	A SMP specific h/w block can init itself
+ * 			Could be common across platforms so not covered by
+ * 			mach_desc->init_early()
+ * @init_per_cpu:	Called for each core so SMP h/w block driver can do
+ * 			any needed setup per cpu (e.g. IPI request)
  * @cpu_kick:		For Master to kickstart a cpu (optionally at a PC)
  * @ipi_send:		To send IPI to a @cpu
  * @ips_clear:		To clear IPI received at @irq
  */
 struct plat_smp_ops {
 	const char 	*info;
+	void		(*init_early_smp)(void);
+	void		(*init_per_cpu)(int cpu);
 	void		(*cpu_kick)(int cpu, unsigned long pc);
 	void		(*ipi_send)(int cpu);
 	void		(*ipi_clear)(int irq);
@@ -79,7 +86,7 @@ static inline const char *arc_platform_smp_cpuinfo(void)
  * (1) These insn were introduced only in 4.10 release. So for older released
  *	support needed.
  *
- * (2) In a SMP setup, the LLOCK/SCOND atomiticity across CPUs needs to be
+ * (2) In a SMP setup, the LLOCK/SCOND atomicity across CPUs needs to be
  *	gaurantted by the platform (not something which core handles).
  *	Assuming a platform won't, SMP Linux needs to use spinlocks + local IRQ
  *	disabling for atomicity.

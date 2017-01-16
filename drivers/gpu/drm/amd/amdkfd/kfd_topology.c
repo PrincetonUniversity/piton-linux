@@ -666,7 +666,7 @@ static ssize_t node_show(struct kobject *kobj, struct attribute *attr,
 			dev->node_props.simd_count);
 
 	if (dev->mem_bank_count < dev->node_props.mem_banks_count) {
-		pr_warn("kfd: mem_banks_count truncated from %d to %d\n",
+		pr_info_once("kfd: mem_banks_count truncated from %d to %d\n",
 				dev->node_props.mem_banks_count,
 				dev->mem_bank_count);
 		sysfs_show_32bit_prop(buffer, "mem_banks_count",
@@ -1185,6 +1185,11 @@ int kfd_topology_add_device(struct kfd_dev *gpu)
 	/*
 	 * TODO: Retrieve max engine clock values from KGD
 	 */
+
+	if (dev->gpu->device_info->asic_family == CHIP_CARRIZO) {
+		dev->node_props.capability |= HSA_CAP_DOORBELL_PACKET_TYPE;
+		pr_info("amdkfd: adding doorbell packet type capability\n");
+	}
 
 	res = 0;
 

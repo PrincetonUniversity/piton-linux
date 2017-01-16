@@ -301,7 +301,7 @@ static inline void emac_netif_stop(struct emac_instance *dev)
 	dev->no_mcast = 1;
 	netif_addr_unlock(dev->ndev);
 	netif_tx_unlock_bh(dev->ndev);
-	dev->ndev->trans_start = jiffies;	/* prevent tx timeout */
+	netif_trans_update(dev->ndev);	/* prevent tx timeout */
 	mal_poll_disable(dev->mal, &dev->commac);
 	netif_tx_disable(dev->ndev);
 }
@@ -1377,7 +1377,7 @@ static inline int emac_xmit_finish(struct emac_instance *dev, int len)
 		DBG2(dev, "stopped TX queue" NL);
 	}
 
-	ndev->trans_start = jiffies;
+	netif_trans_update(ndev);
 	++dev->stats.tx_packets;
 	dev->stats.tx_bytes += len;
 
@@ -2204,7 +2204,6 @@ static void emac_ethtool_get_drvinfo(struct net_device *ndev,
 	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
 	snprintf(info->bus_info, sizeof(info->bus_info), "PPC 4xx EMAC-%d %s",
 		 dev->cell_index, dev->ofdev->dev.of_node->full_name);
-	info->regdump_len = emac_ethtool_get_regs_len(ndev);
 }
 
 static const struct ethtool_ops emac_ethtool_ops = {
@@ -2999,7 +2998,7 @@ static struct platform_driver emac_driver = {
 static void __init emac_make_bootlist(void)
 {
 	struct device_node *np = NULL;
-	int j, max, i = 0, k;
+	int j, max, i = 0;
 	int cell_indices[EMAC_BOOT_LIST_SIZE];
 
 	/* Collect EMACs */
@@ -3026,12 +3025,8 @@ static void __init emac_make_bootlist(void)
 	for (i = 0; max > 1 && (i < (max - 1)); i++)
 		for (j = i; j < max; j++) {
 			if (cell_indices[i] > cell_indices[j]) {
-				np = emac_boot_list[i];
-				emac_boot_list[i] = emac_boot_list[j];
-				emac_boot_list[j] = np;
-				k = cell_indices[i];
-				cell_indices[i] = cell_indices[j];
-				cell_indices[j] = k;
+				swap(emac_boot_list[i], emac_boot_list[j]);
+				swap(cell_indices[i], cell_indices[j]);
 			}
 		}
 }

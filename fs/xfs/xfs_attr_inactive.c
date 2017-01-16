@@ -394,7 +394,6 @@ xfs_attr_inactive(
 {
 	struct xfs_trans	*trans;
 	struct xfs_mount	*mp;
-	int			cancel_flags = 0;
 	int			lock_mode = XFS_ILOCK_SHARED;
 	int			error = 0;
 
@@ -406,24 +405,13 @@ xfs_attr_inactive(
 		goto out_destroy_fork;
 	xfs_iunlock(dp, lock_mode);
 
-	/*
-	 * Start our first transaction of the day.
-	 *
-	 * All future transactions during this code must be "chained" off
-	 * this one via the trans_dup() call.  All transactions will contain
-	 * the inode, and the inode will always be marked with trans_ihold().
-	 * Since the inode will be locked in all transactions, we must log
-	 * the inode in every transaction to let it float upward through
-	 * the log.
-	 */
 	lock_mode = 0;
-	trans = xfs_trans_alloc(mp, XFS_TRANS_ATTRINVAL);
-	error = xfs_trans_reserve(trans, &M_RES(mp)->tr_attrinval, 0, 0);
+
+	error = xfs_trans_alloc(mp, &M_RES(mp)->tr_attrinval, 0, 0, 0, &trans);
 	if (error)
-		goto out_cancel;
+		goto out_destroy_fork;
 
 	lock_mode = XFS_ILOCK_EXCL;
-	cancel_flags = XFS_TRANS_RELEASE_LOG_RES | XFS_TRANS_ABORT;
 	xfs_ilock(dp, lock_mode);
 
 	if (!XFS_IFORK_Q(dp))
@@ -435,8 +423,14 @@ xfs_attr_inactive(
 	 */
 	xfs_trans_ijoin(trans, dp, 0);
 
-	/* invalidate and truncate the attribute fork extents */
-	if (dp->i_d.di_aformat != XFS_DINODE_FMT_LOCAL) {
+	/*
+	 * Invalidate and truncate the attribute fork extents. Make sure the
+	 * fork actually has attributes as otherwise the invalidation has no
+	 * blocks to read and returns an error. In this case, just do the fork
+	 * removal below.
+	 */
+	if (xfs_inode_hasattr(dp) &&
+	    dp->i_d.di_aformat != XFS_DINODE_FMT_LOCAL) {
 		error = xfs_attr3_root_inactive(&trans, dp);
 		if (error)
 			goto out_cancel;
@@ -449,12 +443,12 @@ xfs_attr_inactive(
 	/* Reset the attribute fork - this also destroys the in-core fork */
 	xfs_attr_fork_remove(dp, trans);
 
-	error = xfs_trans_commit(trans, XFS_TRANS_RELEASE_LOG_RES);
+	error = xfs_trans_commit(trans);
 	xfs_iunlock(dp, lock_mode);
 	return error;
 
 out_cancel:
-	xfs_trans_cancel(trans, cancel_flags);
+	xfs_trans_cancel(trans);
 out_destroy_fork:
 	/* kill the in-core attr fork before we drop the inode lock */
 	if (dp->i_afp)

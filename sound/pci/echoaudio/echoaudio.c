@@ -2200,11 +2200,11 @@ static int snd_echo_resume(struct device *dev)
 	u32 pipe_alloc_mask;
 	int err;
 
-	commpage_bak = kmalloc(sizeof(struct echoaudio), GFP_KERNEL);
+	commpage_bak = kmalloc(sizeof(*commpage), GFP_KERNEL);
 	if (commpage_bak == NULL)
 		return -ENOMEM;
 	commpage = chip->comm_page;
-	memcpy(commpage_bak, commpage, sizeof(struct comm_page));
+	memcpy(commpage_bak, commpage, sizeof(*commpage));
 
 	err = init_hw(chip, chip->pci->device, chip->pci->subsystem_device);
 	if (err < 0) {
@@ -2245,7 +2245,7 @@ static int snd_echo_resume(struct device *dev)
 
 #ifdef ECHOCARD_HAS_MIDI
 	if (chip->midi_input_enabled)
-		enable_midi_input(chip, TRUE);
+		enable_midi_input(chip, true);
 	if (chip->midi_out)
 		snd_echo_midi_output_trigger(chip->midi_out, 1);
 #endif

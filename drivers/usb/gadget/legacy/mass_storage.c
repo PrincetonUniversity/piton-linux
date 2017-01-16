@@ -55,7 +55,7 @@ static struct usb_device_descriptor msg_device_desc = {
 	.bLength =		sizeof msg_device_desc,
 	.bDescriptorType =	USB_DT_DEVICE,
 
-	.bcdUSB =		cpu_to_le16(0x0200),
+	/* .bcdUSB = DYNAMIC */
 	.bDeviceClass =		USB_CLASS_PER_INTERFACE,
 
 	/* Vendor and product id can be overridden by module parameters.  */
@@ -64,21 +64,7 @@ static struct usb_device_descriptor msg_device_desc = {
 	.bNumConfigurations =	1,
 };
 
-static struct usb_otg_descriptor otg_descriptor = {
-	.bLength =		sizeof otg_descriptor,
-	.bDescriptorType =	USB_DT_OTG,
-
-	/*
-	 * REVISIT SRP-only hardware is possible, although
-	 * it would not be called "OTG" ...
-	 */
-	.bmAttributes =		USB_OTG_SRP | USB_OTG_HNP,
-};
-
-static const struct usb_descriptor_header *otg_desc[] = {
-	(struct usb_descriptor_header *) &otg_descriptor,
-	NULL,
-};
+static const struct usb_descriptor_header *otg_desc[2];
 
 static struct usb_string strings_dev[] = {
 	[USB_GADGET_MANUFACTURER_IDX].s = "",
@@ -146,10 +132,6 @@ static int msg_do_config(struct usb_configuration *c)
 	if (IS_ERR(f_msg))
 		return PTR_ERR(f_msg);
 
-	ret = fsg_common_run_thread(opts->common);
-	if (ret)
-		goto put_func;
-
 	ret = usb_add_function(c, f_msg);
 	if (ret)
 		goto put_func;
@@ -191,10 +173,6 @@ static int msg_bind(struct usb_composite_dev *cdev)
 	if (status)
 		goto fail;
 
-	status = fsg_common_set_nluns(opts->common, config.nluns);
-	if (status)
-		goto fail_set_nluns;
-
 	fsg_common_set_ops(opts->common, &ops);
 
 	status = fsg_common_set_cdev(opts->common, cdev, config.can_stall);
@@ -214,9 +192,20 @@ static int msg_bind(struct usb_composite_dev *cdev)
 		goto fail_string_ids;
 	msg_device_desc.iProduct = strings_dev[USB_GADGET_PRODUCT_IDX].id;
 
+	if (gadget_is_otg(cdev->gadget) && !otg_desc[0]) {
+		struct usb_descriptor_header *usb_desc;
+
+		usb_desc = usb_otg_descriptor_alloc(cdev->gadget);
+		if (!usb_desc)
+			goto fail_string_ids;
+		usb_otg_descriptor_init(cdev->gadget, usb_desc);
+		otg_desc[0] = usb_desc;
+		otg_desc[1] = NULL;
+	}
+
 	status = usb_add_config(cdev, &msg_config_driver, msg_do_config);
 	if (status < 0)
-		goto fail_string_ids;
+		goto fail_otg_desc;
 
 	usb_composite_overwrite_options(cdev, &coverwrite);
 	dev_info(&cdev->gadget->dev,
@@ -224,11 +213,12 @@ static int msg_bind(struct usb_composite_dev *cdev)
 	set_bit(0, &msg_registered);
 	return 0;
 
+fail_otg_desc:
+	kfree(otg_desc[0]);
+	otg_desc[0] = NULL;
 fail_string_ids:
 	fsg_common_remove_luns(opts->common);
 fail_set_cdev:
-	fsg_common_free_luns(opts->common);
-fail_set_nluns:
 	fsg_common_free_buffers(opts->common);
 fail:
 	usb_put_function_instance(fi_msg);
@@ -242,6 +232,9 @@ static int msg_unbind(struct usb_composite_dev *cdev)
 
 	if (!IS_ERR(fi_msg))
 		usb_put_function_instance(fi_msg);
+
+	kfree(otg_desc[0]);
+	otg_desc[0] = NULL;
 
 	return 0;
 }
