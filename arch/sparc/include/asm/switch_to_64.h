@@ -2,6 +2,7 @@
 #define __SPARC64_SWITCH_TO_64_H
 
 #include <asm/visasm.h>
+#include <asm/mitts.h>
 
 #define prepare_arch_switch(next)		\
 do {						\
@@ -19,6 +20,8 @@ do {						\
 	 */
 #define switch_to(prev, next, last)					\
 do {	save_and_clear_fpu();						\
+	mitts_write_config(task_thread_info(next)->mitts_cfg[0],	\
+			   task_thread_info(next)->mitts_cfg[1]);	\
 	/* If you are tempted to conditionalize the following */	\
 	/* so that ASI is only written if it changes, think again. */	\
 	__asm__ __volatile__("wr %%g0, %0, %%asi"			\

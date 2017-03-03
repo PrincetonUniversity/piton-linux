@@ -19,6 +19,7 @@ lib-$(CONFIG_SPARC32) += muldi3.o bitext.o cmpdi2.o
 lib-$(CONFIG_SPARC64) += copy_page.o clear_page.o bzero.o
 lib-$(CONFIG_SPARC64) += csum_copy.o csum_copy_from_user.o csum_copy_to_user.o
 lib-$(CONFIG_SPARC64) += VISsave.o
+lib-$(CONFIG_SPARC64) += mitts_write_config.o
 lib-$(CONFIG_SPARC64) += bitops.o
 
 lib-$(CONFIG_SPARC64) += U1memcpy.o U1copy_from_user.o U1copy_to_user.o
