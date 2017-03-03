@@ -192,6 +192,14 @@ void __init sun4v_hvapi_init(void)
 	if (sun4v_hvapi_register(group, major, &minor))
 		goto bad;
 
+#ifdef CONFIG_OPENSPARC_T1_FPGA
+	group = HV_GRP_INTR;
+	major = 1;
+	minor = 0;
+	if (sun4v_hvapi_register(group, major, &minor))
+		goto bad;
+#endif /* CONFIG_OPENSPARC_T1_FPGA */
+
 	return;
 
 bad:

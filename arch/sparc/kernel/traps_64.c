@@ -2707,6 +2707,7 @@ void __init trap_init(void)
 		     TI_KUNA_INSN != offsetof(struct thread_info,
 					      kern_una_insn) ||
 		     TI_FPREGS != offsetof(struct thread_info, fpregs) ||
+		     TI_MITTS_CFG != offsetof(struct thread_info, mitts_cfg) ||
 		     (TI_FPREGS & (64 - 1)));
 
 	BUILD_BUG_ON(TRAP_PER_CPU_THREAD != offsetof(struct trap_per_cpu,
