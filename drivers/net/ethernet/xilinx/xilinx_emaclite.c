@@ -27,6 +27,10 @@
 #include <linux/phy.h>
 #include <linux/interrupt.h>
 
+#include <asm/oplib.h>
+
+#include "dbg.h"
+
 #define DRIVER_NAME "xilinx_emaclite"
 
 /* Register offsets for the EmacLite Core */
@@ -68,6 +72,7 @@
 #define XEL_TSR_XMIT_BUSY_MASK	 0x00000001	/* Tx complete */
 #define XEL_TSR_PROGRAM_MASK	 0x00000002	/* Program the MAC address */
 #define XEL_TSR_XMIT_IE_MASK	 0x00000008	/* Tx interrupt enable bit */
+#define XEL_TSR_XMIT_LOOPBACK    0x00000010
 #define XEL_TSR_XMIT_ACTIVE_MASK 0x80000000	/* Buffer is active, SW bit
 						 * only. This is not documented
 						 * in the HW spec */
@@ -98,7 +103,7 @@
 #define ALIGNMENT		4
 
 /* BUFFER_ALIGN(adr) calculates the number of bytes to the next alignment. */
-#define BUFFER_ALIGN(adr) ((ALIGNMENT - ((u32) adr)) % ALIGNMENT)
+#define BUFFER_ALIGN(adr) ((ALIGNMENT - ((u64) adr)) % ALIGNMENT)
 
 /**
  * struct net_local - Our private per device data
@@ -139,6 +144,13 @@ struct net_local {
 	bool has_mdio;
 };
 
+extern u32 sunhv_net_read(void *pa);
+extern u32 sunhv_net_write(u32 l, void *pa);
+
+struct net_device *emaclite_net_device;
+//static struct timer_list net_poll_timer;
+
+//static void net_poll(unsigned long);
 
 /*************************/
 /* EmacLite driver calls */
@@ -156,15 +168,31 @@ static void xemaclite_enable_interrupts(struct net_local *drvdata)
 	u32 reg_data;
 
 	/* Enable the Tx interrupts for the first Buffer */
-	reg_data = __raw_readl(drvdata->base_addr + XEL_TSR_OFFSET);
-	__raw_writel(reg_data | XEL_TSR_XMIT_IE_MASK,
+	reg_data = sunhv_net_read(drvdata->base_addr + XEL_TSR_OFFSET);
+//	dev_info(&drvdata->ndev->dev,
+//		"sunhv_net_read(addr=%p) == %x\n",
+//		drvdata->base_addr + XEL_TSR_OFFSET, reg_data);
+
+	sunhv_net_write(reg_data | XEL_TSR_XMIT_IE_MASK,
 		     drvdata->base_addr + XEL_TSR_OFFSET);
+//	dev_info(&drvdata->ndev->dev,
+//		"sunhv_net_write(val=%x, addr=%p)\n",
+//		reg_data | XEL_TSR_XMIT_IE_MASK, drvdata->base_addr + XEL_TSR_OFFSET);
+
 
 	/* Enable the Rx interrupts for the first buffer */
-	__raw_writel(XEL_RSR_RECV_IE_MASK, drvdata->base_addr + XEL_RSR_OFFSET);
+	sunhv_net_write(XEL_RSR_RECV_IE_MASK, drvdata->base_addr + XEL_RSR_OFFSET);
+//	dev_info(&drvdata->ndev->dev,
+//		"sunhv_net_write(val=%x, addr=%p)\n",
+//		XEL_RSR_RECV_IE_MASK, drvdata->base_addr + XEL_RSR_OFFSET);
+
 
 	/* Enable the Global Interrupt Enable */
-	__raw_writel(XEL_GIER_GIE_MASK, drvdata->base_addr + XEL_GIER_OFFSET);
+	sunhv_net_write(XEL_GIER_GIE_MASK, drvdata->base_addr + XEL_GIER_OFFSET);
+//	dev_info(&drvdata->ndev->dev,
+//		"sunhv_net_write(val=%x, addr=%p)\n",
+//		XEL_GIER_GIE_MASK, drvdata->base_addr + XEL_GIER_OFFSET);
+
 }
 
 /**
@@ -179,17 +207,37 @@ static void xemaclite_disable_interrupts(struct net_local *drvdata)
 	u32 reg_data;
 
 	/* Disable the Global Interrupt Enable */
-	__raw_writel(XEL_GIER_GIE_MASK, drvdata->base_addr + XEL_GIER_OFFSET);
+	sunhv_net_write(XEL_GIER_GIE_MASK, drvdata->base_addr + XEL_GIER_OFFSET);
+//	dev_info(&drvdata->ndev->dev,
+//		"sunhv_net_write(val=%x, addr=%p)\n",
+//		XEL_GIER_GIE_MASK, drvdata->base_addr + XEL_GIER_OFFSET);
+
 
 	/* Disable the Tx interrupts for the first buffer */
-	reg_data = __raw_readl(drvdata->base_addr + XEL_TSR_OFFSET);
-	__raw_writel(reg_data & (~XEL_TSR_XMIT_IE_MASK),
+	reg_data = sunhv_net_read(drvdata->base_addr + XEL_TSR_OFFSET);
+//	dev_info(&drvdata->ndev->dev,
+//		"sunhv_net_read(addr=%p) == %x\n",
+//		drvdata->base_addr + XEL_TSR_OFFSET, reg_data);
+
+	sunhv_net_write(reg_data & (~XEL_TSR_XMIT_IE_MASK),
 		     drvdata->base_addr + XEL_TSR_OFFSET);
+//	dev_info(&drvdata->ndev->dev,
+//		"sunhv_net_write(val=%x, addr=%p)\n",
+//		reg_data & (~XEL_TSR_XMIT_IE_MASK), drvdata->base_addr + XEL_TSR_OFFSET);
+
 
 	/* Disable the Rx interrupts for the first buffer */
-	reg_data = __raw_readl(drvdata->base_addr + XEL_RSR_OFFSET);
-	__raw_writel(reg_data & (~XEL_RSR_RECV_IE_MASK),
+	reg_data = sunhv_net_read(drvdata->base_addr + XEL_RSR_OFFSET);
+//	dev_info(&drvdata->ndev->dev,
+//		"sunhv_net_read(addr=%p) == %x\n",
+//		drvdata->base_addr + XEL_RSR_OFFSET, reg_data);
+
+	sunhv_net_write(reg_data & (~XEL_RSR_RECV_IE_MASK),
 		     drvdata->base_addr + XEL_RSR_OFFSET);
+//	dev_info(&drvdata->ndev->dev,
+//		"sunhv_net_write(val=%x, addr=%p)\n",
+//		reg_data & (~XEL_RSR_RECV_IE_MASK), drvdata->base_addr + XEL_RSR_OFFSET);
+
 }
 
 /**
@@ -225,7 +273,13 @@ static void xemaclite_aligned_write(void *src_ptr, u32 *dest_ptr,
 		wmb();
 
 		/* Output a word */
-		*to_u32_ptr++ = align_buffer;
+		//*to_u32_ptr++ = align_buffer;
+		sunhv_net_write(cpu_to_le32(align_buffer), to_u32_ptr);
+//	    dev_info(&drvdata->ndev->dev,
+//	    	"sunhv_net_write(val=%x, addr=%p)\n",
+//	    	align_buffer, to_u32_ptr);
+
+		to_u32_ptr++;
 	}
 	if (length) {
 		u8 *from_u8_ptr, *to_u8_ptr;
@@ -245,7 +299,12 @@ static void xemaclite_aligned_write(void *src_ptr, u32 *dest_ptr,
 		 * memory locations.
 		 */
 		wmb();
-		*to_u32_ptr = align_buffer;
+		//*to_u32_ptr = align_buffer;
+		sunhv_net_write(cpu_to_le32(align_buffer), to_u32_ptr);
+//	    dev_info(&drvdata->ndev->dev,
+//	    	"sunhv_net_write(val=%x, addr=%p)\n",
+//	    	align_buffer, to_u32_ptr);
+
 	}
 }
 
@@ -270,7 +329,13 @@ static void xemaclite_aligned_read(u32 *src_ptr, u8 *dest_ptr,
 
 	for (; length > 3; length -= 4) {
 		/* Copy each word into the temporary buffer */
-		align_buffer = *from_u32_ptr++;
+		//align_buffer = *from_u32_ptr++;
+		align_buffer = le32_to_cpu(sunhv_net_read(from_u32_ptr));
+//    	dev_info(&drvdata->ndev->dev,
+//    		"sunhv_net_read(addr=%x) == %x\n",
+//    		from_u32_ptr, align_buffer);
+
+		from_u32_ptr++;
 		from_u16_ptr = (u16 *)&align_buffer;
 
 		/* Read data from source */
@@ -283,7 +348,13 @@ static void xemaclite_aligned_read(u32 *src_ptr, u8 *dest_ptr,
 
 		/* Set up to read the remaining data */
 		to_u8_ptr = (u8 *) to_u16_ptr;
-		align_buffer = *from_u32_ptr++;
+		//align_buffer = *from_u32_ptr++;
+		align_buffer = le32_to_cpu(sunhv_net_read(from_u32_ptr));
+//    	dev_info(&drvdata->ndev->dev,
+//    		"sunhv_net_read(addr=%x) == %x\n",
+//    		from_u32_ptr, align_buffer);
+
+		from_u32_ptr++;
 		from_u8_ptr = (u8 *) &align_buffer;
 
 		/* Read the remaining data */
@@ -311,6 +382,7 @@ static int xemaclite_send_data(struct net_local *drvdata, u8 *data,
 			       unsigned int byte_count)
 {
 	u32 reg_data;
+	u16 reg_data_16;
 	void __iomem *addr;
 
 	/* Determine the expected Tx buffer address */
@@ -321,40 +393,73 @@ static int xemaclite_send_data(struct net_local *drvdata, u8 *data,
 		byte_count = ETH_FRAME_LEN;
 
 	/* Check if the expected buffer is available */
-	reg_data = __raw_readl(addr + XEL_TSR_OFFSET);
+	reg_data = sunhv_net_read(addr + XEL_TSR_OFFSET);
+    	//dev_info(&drvdata->ndev->dev,
+    	//	"%d:%s: Read: %p == %x\n",
+	//	__LINE__, __func__, addr + XEL_TSR_OFFSET, reg_data);
+
 	if ((reg_data & (XEL_TSR_XMIT_BUSY_MASK |
 	     XEL_TSR_XMIT_ACTIVE_MASK)) == 0) {
+		//dev_info(&drvdata->ndev->dev,
+		//	"%d:%s: Buffer is ready", __LINE__, __func__);
 
 		/* Switch to next buffer if configured */
-		if (drvdata->tx_ping_pong != 0)
+		if (drvdata->tx_ping_pong != 0) {
 			drvdata->next_tx_buf_to_use ^= XEL_BUFFER_OFFSET;
+			//dev_info(&drvdata->ndev->dev,
+			//	"%d:%s: Switching to next buffer", __LINE__, __func__);
+		}
 	} else if (drvdata->tx_ping_pong != 0) {
 		/* If the expected buffer is full, try the other buffer,
 		 * if it is configured in HW */
 
-		addr = (void __iomem __force *)((u32 __force)addr ^
+		//dev_info(&drvdata->ndev->dev,
+		//	"%d:%s: Device is busy. Trying other buffer",
+		//	__LINE__, __func__);
+
+		addr = (void __iomem __force *)((u64 __force)addr ^
 						 XEL_BUFFER_OFFSET);
-		reg_data = __raw_readl(addr + XEL_TSR_OFFSET);
+		reg_data = sunhv_net_read(addr + XEL_TSR_OFFSET);
+//        dev_info(&drvdata->ndev->dev,
+//        	"sunhv_net_read(addr=%p) == %x\n",
+//        	addr + XEL_TSR_OFFSET, reg_data);
+
 
 		if ((reg_data & (XEL_TSR_XMIT_BUSY_MASK |
-		     XEL_TSR_XMIT_ACTIVE_MASK)) != 0)
+		     XEL_TSR_XMIT_ACTIVE_MASK)) != 0) {
+			//dev_info(&drvdata->ndev->dev,
+			//	"%d:%s: Both buffers are full!", __LINE__, __func__);
 			return -1; /* Buffers were full, return failure */
-	} else
+		}
+	} else {
+		//dev_info(&drvdata->ndev->dev, "%d:%s: Buffer is full!", __LINE__, __func__);	
 		return -1; /* Buffer was full, return failure */
+	}
 
 	/* Write the frame to the buffer */
 	xemaclite_aligned_write(data, (u32 __force *) addr, byte_count);
 
-	__raw_writel((byte_count & XEL_TPLR_LENGTH_MASK),
+	sunhv_net_write((byte_count & XEL_TPLR_LENGTH_MASK),
 		     addr + XEL_TPLR_OFFSET);
+	reg_data_16 = sunhv_net_read(addr + XEL_TPLR_OFFSET);
+	AL_DEBUG("Byte count in reg: %04x\n", reg_data_16);
+	AL_DEBUG("Written value (not masked): %x\n", byte_count);
 
 	/* Update the Tx Status Register to indicate that there is a
 	 * frame to send. Set the XEL_TSR_XMIT_ACTIVE_MASK flag which
 	 * is used by the interrupt handler to check whether a frame
 	 * has been transmitted */
-	reg_data = __raw_readl(addr + XEL_TSR_OFFSET);
+	reg_data = sunhv_net_read(addr + XEL_TSR_OFFSET);
+    	//dev_info(&drvdata->ndev->dev,
+    	//	"%d:%s: sunhv_net_read(addr=%p) == %x\n",
+    	//	__LINE__, __func__, addr + XEL_TSR_OFFSET, reg_data);
+
 	reg_data |= (XEL_TSR_XMIT_BUSY_MASK | XEL_TSR_XMIT_ACTIVE_MASK);
-	__raw_writel(reg_data, addr + XEL_TSR_OFFSET);
+	sunhv_net_write(reg_data, addr + XEL_TSR_OFFSET);
+	//dev_info(&drvdata->ndev->dev,
+	//	"%d:%s: sunhv_net_write(val=%x, addr=%p)\n",
+	//	__LINE__, __func__, reg_data, addr + XEL_TSR_OFFSET);
+
 
 	return 0;
 }
@@ -379,7 +484,11 @@ static u16 xemaclite_recv_data(struct net_local *drvdata, u8 *data)
 	addr = (drvdata->base_addr + drvdata->next_rx_buf_to_use);
 
 	/* Verify which buffer has valid data */
-	reg_data = __raw_readl(addr + XEL_RSR_OFFSET);
+	reg_data = sunhv_net_read(addr + XEL_RSR_OFFSET);
+//    dev_info(&drvdata->ndev->dev,
+//    	"sunhv_net_read(addr=%p) == %x\n",
+//    	addr + XEL_RSR_OFFSET, reg_data);
+
 
 	if ((reg_data & XEL_RSR_RECV_DONE_MASK) == XEL_RSR_RECV_DONE_MASK) {
 		if (drvdata->rx_ping_pong != 0)
@@ -390,29 +499,37 @@ static u16 xemaclite_recv_data(struct net_local *drvdata, u8 *data)
 		 * out of sync, do not update the 'next_rx_buf_to_use' since it
 		 * will correct on subsequent calls */
 		if (drvdata->rx_ping_pong != 0)
-			addr = (void __iomem __force *)((u32 __force)addr ^
+			addr = (void __iomem __force *)((u64 __force)addr ^
 							 XEL_BUFFER_OFFSET);
 		else
 			return 0;	/* No data was available */
 
 		/* Verify that buffer has valid data */
-		reg_data = __raw_readl(addr + XEL_RSR_OFFSET);
+		reg_data = sunhv_net_read(addr + XEL_RSR_OFFSET);
+//        dev_info(&drvdata->ndev->dev,
+//        	"sunhv_net_read(addr=%p) == %x\n",
+//        	addr + XEL_RSR_OFFSET, reg_data);
+
 		if ((reg_data & XEL_RSR_RECV_DONE_MASK) !=
 		     XEL_RSR_RECV_DONE_MASK)
 			return 0;	/* No data was available */
 	}
 
+	AL_DEBUG("Receiving a packet:\n");
+
 	/* Get the protocol type of the ethernet frame that arrived */
-	proto_type = ((ntohl(__raw_readl(addr + XEL_HEADER_OFFSET +
+	reg_data = ((le32_to_cpu(sunhv_net_read(addr + XEL_HEADER_OFFSET +
 			XEL_RXBUFF_OFFSET)) >> XEL_HEADER_SHIFT) &
 			XEL_RPLR_LENGTH_MASK);
+	AL_DEBUG("Protocol type: %08x\n", reg_data);
+	proto_type = reg_data;
 
 	/* Check if received ethernet frame is a raw ethernet frame
 	 * or an IP packet or an ARP packet */
 	if (proto_type > (ETH_FRAME_LEN + ETH_FCS_LEN)) {
 
 		if (proto_type == ETH_P_IP) {
-			length = ((ntohl(__raw_readl(addr +
+			length = ((le32_to_cpu(sunhv_net_read(addr +
 					XEL_HEADER_IP_LENGTH_OFFSET +
 					XEL_RXBUFF_OFFSET)) >>
 					XEL_HEADER_SHIFT) &
@@ -429,14 +546,23 @@ static u16 xemaclite_recv_data(struct net_local *drvdata, u8 *data)
 		/* Use the length in the frame, plus the header and trailer */
 		length = proto_type + ETH_HLEN + ETH_FCS_LEN;
 
+	AL_DEBUG("PKT Length: %x\n", length);
 	/* Read from the EmacLite device */
 	xemaclite_aligned_read((u32 __force *) (addr + XEL_RXBUFF_OFFSET),
 				data, length);
 
 	/* Acknowledge the frame */
-	reg_data = __raw_readl(addr + XEL_RSR_OFFSET);
+	reg_data = sunhv_net_read(addr + XEL_RSR_OFFSET);
+//    dev_info(&drvdata->ndev->dev,
+//    	"sunhv_net_read(addr=%p) == %x\n",
+//    	addr + XEL_RSR_OFFSET, reg_data);
+
 	reg_data &= ~XEL_RSR_RECV_DONE_MASK;
-	__raw_writel(reg_data, addr + XEL_RSR_OFFSET);
+	sunhv_net_write(reg_data, addr + XEL_RSR_OFFSET);
+//	dev_info(&drvdata->ndev->dev,
+//		"sunhv_net_write(val=%x, addr=%p)\n",
+//		reg_data, addr + XEL_RSR_OFFSET);
+
 
 	return length;
 }
@@ -463,16 +589,30 @@ static void xemaclite_update_address(struct net_local *drvdata,
 
 	xemaclite_aligned_write(address_ptr, (u32 __force *) addr, ETH_ALEN);
 
-	__raw_writel(ETH_ALEN, addr + XEL_TPLR_OFFSET);
+	sunhv_net_write(ETH_ALEN, addr + XEL_TPLR_OFFSET);
+//	dev_info(&drvdata->ndev->dev,
+//		"sunhv_net_write(val=%x, addr=%p)\n",
+//		ETH_ALEN, addr + XEL_TPLR_OFFSET);
+
 
 	/* Update the MAC address in the EmacLite */
-	reg_data = __raw_readl(addr + XEL_TSR_OFFSET);
-	__raw_writel(reg_data | XEL_TSR_PROG_MAC_ADDR, addr + XEL_TSR_OFFSET);
+	reg_data = sunhv_net_read(addr + XEL_TSR_OFFSET);
+//    dev_info(&drvdata->ndev->dev,
+//    	"sunhv_net_read(addr=%p) == %x\n",
+//    	addr + XEL_TSR_OFFSET, reg_data);
+
+	sunhv_net_write(reg_data | XEL_TSR_PROG_MAC_ADDR, addr + XEL_TSR_OFFSET);
+//	dev_info(&drvdata->ndev->dev,
+//		"sunhv_net_write(val=%x, addr=%p)\n",
+//		reg_data | XEL_TSR_PROG_MAC_ADDR, addr + XEL_TSR_OFFSET);
+
 
 	/* Wait for EmacLite to finish with the MAC address update */
-	while ((__raw_readl(addr + XEL_TSR_OFFSET) &
+	while ((sunhv_net_read(addr + XEL_TSR_OFFSET) &
 		XEL_TSR_PROG_MAC_ADDR) != 0)
 		;
+
+	AL_DEBUG("Updated MAC address");
 }
 
 /**
@@ -510,7 +650,7 @@ static void xemaclite_tx_timeout(struct net_device *dev)
 	struct net_local *lp = netdev_priv(dev);
 	unsigned long flags;
 
-	dev_err(&lp->ndev->dev, "Exceeded transmit timeout of %lu ms\n",
+	dev_err(&dev->dev, "Exceeded transmit timeout of %lu ms\n",
 		TX_TIMEOUT * 1000UL / HZ);
 
 	dev->stats.tx_errors++;
@@ -588,7 +728,7 @@ static void xemaclite_rx_handler(struct net_device *dev)
 	if (!skb) {
 		/* Couldn't get memory. */
 		dev->stats.rx_dropped++;
-		dev_err(&lp->ndev->dev, "Could not allocate receive buffer\n");
+		dev_err(&dev->dev, "Could not allocate receive buffer\n");
 		return;
 	}
 
@@ -640,34 +780,46 @@ static irqreturn_t xemaclite_interrupt(int irq, void *dev_id)
 	u32 tx_status;
 
 	/* Check if there is Rx Data available */
-	if ((__raw_readl(base_addr + XEL_RSR_OFFSET) &
+	if ((sunhv_net_read(base_addr + XEL_RSR_OFFSET) &
 			 XEL_RSR_RECV_DONE_MASK) ||
-	    (__raw_readl(base_addr + XEL_BUFFER_OFFSET + XEL_RSR_OFFSET)
+	    (sunhv_net_read(base_addr + XEL_BUFFER_OFFSET + XEL_RSR_OFFSET)
 			 & XEL_RSR_RECV_DONE_MASK))
 
 		xemaclite_rx_handler(dev);
 
 	/* Check if the Transmission for the first buffer is completed */
-	tx_status = __raw_readl(base_addr + XEL_TSR_OFFSET);
+	tx_status = sunhv_net_read(base_addr + XEL_TSR_OFFSET);
+    //dev_info(&dev->dev,
+    //	"xemaclite_interrupt - sunhv_net_read(addr=%p) == %x\n",
+    //	base_addr + XEL_TSR_OFFSET, tx_status);
+
 	if (((tx_status & XEL_TSR_XMIT_BUSY_MASK) == 0) &&
 		(tx_status & XEL_TSR_XMIT_ACTIVE_MASK) != 0) {
 
 		tx_status &= ~XEL_TSR_XMIT_ACTIVE_MASK;
-		__raw_writel(tx_status, base_addr + XEL_TSR_OFFSET);
+		sunhv_net_write(tx_status, base_addr + XEL_TSR_OFFSET);
 
 		tx_complete = true;
+	    	
+		AL_DEBUG("Transmission for the first buffer has finished");
 	}
 
 	/* Check if the Transmission for the second buffer is completed */
-	tx_status = __raw_readl(base_addr + XEL_BUFFER_OFFSET + XEL_TSR_OFFSET);
+	tx_status = sunhv_net_read(base_addr + XEL_BUFFER_OFFSET + XEL_TSR_OFFSET);
+    //dev_info(&dev->dev,
+    //	"xemaclite_interrupt - sunhv_net_read(addr=%p) == %x\n",
+    // 	base_addr + XEL_BUFFER_OFFSET + XEL_TSR_OFFSET, tx_status);
+
 	if (((tx_status & XEL_TSR_XMIT_BUSY_MASK) == 0) &&
 		(tx_status & XEL_TSR_XMIT_ACTIVE_MASK) != 0) {
 
 		tx_status &= ~XEL_TSR_XMIT_ACTIVE_MASK;
-		__raw_writel(tx_status, base_addr + XEL_BUFFER_OFFSET +
+		sunhv_net_write(tx_status, base_addr + XEL_BUFFER_OFFSET +
 			     XEL_TSR_OFFSET);
 
 		tx_complete = true;
+		
+		AL_DEBUG("Transmission for the second buffer has finished\n");
 	}
 
 	/* If there was a Tx interrupt, call the Tx Handler */
@@ -698,7 +850,7 @@ static int xemaclite_mdio_wait(struct net_local *lp)
 	/* wait for the MDIO interface to not be busy or timeout
 	   after some time.
 	*/
-	while (__raw_readl(lp->base_addr + XEL_MDIOCTRL_OFFSET) &
+	while (sunhv_net_read(lp->base_addr + XEL_MDIOCTRL_OFFSET) &
 			XEL_MDIOCTRL_MDIOSTS_MASK) {
 		if (time_before_eq(end, jiffies)) {
 			WARN_ON(1);
@@ -734,21 +886,37 @@ static int xemaclite_mdio_read(struct mii_bus *bus, int phy_id, int reg)
 	 * MDIO Address register. Set the Status bit in the MDIO Control
 	 * register to start a MDIO read transaction.
 	 */
-	ctrl_reg = __raw_readl(lp->base_addr + XEL_MDIOCTRL_OFFSET);
-	__raw_writel(XEL_MDIOADDR_OP_MASK |
+	ctrl_reg = sunhv_net_read(lp->base_addr + XEL_MDIOCTRL_OFFSET);
+//    dev_info(&lp->ndev->dev,
+//    	"sunhv_net_read(addr=%p) == %x\n",
+//    	lp->base_addr + XEL_MDIOCTRL_OFFSET, ctrl_reg);
+
+	sunhv_net_write(XEL_MDIOADDR_OP_MASK |
 		     ((phy_id << XEL_MDIOADDR_PHYADR_SHIFT) | reg),
 		     lp->base_addr + XEL_MDIOADDR_OFFSET);
-	__raw_writel(ctrl_reg | XEL_MDIOCTRL_MDIOSTS_MASK,
+//	dev_info(&lp->ndev->dev,
+//		"sunhv_net_write(val=%x, addr=%p)\n",
+//		XEL_MDIOADDR_OP_MASK | ((phy_id << XEL_MDIOADDR_PHYADR_SHIFT) | reg), lp->base_addr + XEL_MDIOADDR_OFFSET);
+
+	sunhv_net_write(ctrl_reg | XEL_MDIOCTRL_MDIOSTS_MASK,
 		     lp->base_addr + XEL_MDIOCTRL_OFFSET);
+//	dev_info(&lp->ndev->dev,
+//		"sunhv_net_write(val=%x, addr=%p)\n",
+//		ctrl_reg | XEL_MDIOCTRL_MDIOSTS_MASK, lp->base_addr + XEL_MDIOCTRL_OFFSET);
+
 
 	if (xemaclite_mdio_wait(lp))
 		return -ETIMEDOUT;
 
-	rc = __raw_readl(lp->base_addr + XEL_MDIORD_OFFSET);
+	rc = sunhv_net_read(lp->base_addr + XEL_MDIORD_OFFSET);
+//    dev_info(&lp->ndev->dev,
+//    	"sunhv_net_read(addr=%p) == %x\n",
+//    	lp->base_addr + XEL_MDIORD_OFFSET, rc);
 
-	dev_dbg(&lp->ndev->dev,
-		"xemaclite_mdio_read(phy_id=%i, reg=%x) == %x\n",
-		phy_id, reg, rc);
+
+//	dev_info(&lp->ndev->dev,
+//		"xemaclite_mdio_read(phy_id=%i, reg=%x) == %x\n",
+//		phy_id, reg, rc);
 
 	return rc;
 }
@@ -769,9 +937,9 @@ static int xemaclite_mdio_write(struct mii_bus *bus, int phy_id, int reg,
 	struct net_local *lp = bus->priv;
 	u32 ctrl_reg;
 
-	dev_dbg(&lp->ndev->dev,
-		"xemaclite_mdio_write(phy_id=%i, reg=%x, val=%x)\n",
-		phy_id, reg, val);
+//	dev_info(&lp->ndev->dev,
+//		"xemaclite_mdio_write(phy_id=%i, reg=%x, val=%x)\n",
+//		phy_id, reg, val);
 
 	if (xemaclite_mdio_wait(lp))
 		return -ETIMEDOUT;
@@ -781,13 +949,28 @@ static int xemaclite_mdio_write(struct mii_bus *bus, int phy_id, int reg,
 	 * Data register. Finally, set the Status bit in the MDIO Control
 	 * register to start a MDIO write transaction.
 	 */
-	ctrl_reg = __raw_readl(lp->base_addr + XEL_MDIOCTRL_OFFSET);
-	__raw_writel(~XEL_MDIOADDR_OP_MASK &
+	ctrl_reg = sunhv_net_read(lp->base_addr + XEL_MDIOCTRL_OFFSET);
+//	dev_info(&lp->ndev->dev,
+//		"sunhv_net_read(addr=%p) == %x\n",
+//		lp->base_addr + XEL_MDIOCTRL_OFFSET, ctrl_reg);
+
+	sunhv_net_write(~XEL_MDIOADDR_OP_MASK &
 		     ((phy_id << XEL_MDIOADDR_PHYADR_SHIFT) | reg),
 		     lp->base_addr + XEL_MDIOADDR_OFFSET);
-	__raw_writel(val, lp->base_addr + XEL_MDIOWR_OFFSET);
-	__raw_writel(ctrl_reg | XEL_MDIOCTRL_MDIOSTS_MASK,
+//	dev_info(&lp->ndev->dev,
+//		"sunhv_net_write(val=%x, addr=%p)\n",
+//		~XEL_MDIOADDR_OP_MASK & ((phy_id << XEL_MDIOADDR_PHYADR_SHIFT) | reg), lp->base_addr + XEL_MDIOADDR_OFFSET);
+
+	sunhv_net_write(val, lp->base_addr + XEL_MDIOWR_OFFSET);
+//	dev_info(&lp->ndev->dev,
+//		"sunhv_net_write(val=%x, addr=%p)\n",
+//		val, lp->base_addr + XEL_MDIOWR_OFFSET);
+
+	sunhv_net_write(ctrl_reg | XEL_MDIOCTRL_MDIOSTS_MASK,
 		     lp->base_addr + XEL_MDIOCTRL_OFFSET);
+//	dev_info(&lp->ndev->dev,
+//		"sunhv_net_write(val=%x, addr=%p)\n",
+//		ctrl_reg | XEL_MDIOCTRL_MDIOSTS_MASK, lp->base_addr + XEL_MDIOCTRL_OFFSET);
 
 	return 0;
 }
@@ -808,7 +991,7 @@ static int xemaclite_mdio_setup(struct net_local *lp, struct device *dev)
 	int rc;
 	struct resource res;
 	struct device_node *np = of_get_parent(lp->phy_node);
-	struct device_node *npp;
+	//struct device_node *npp;
 
 	/* Don't register the MDIO bus if the phy_node or its parent node
 	 * can't be found.
@@ -817,25 +1000,29 @@ static int xemaclite_mdio_setup(struct net_local *lp, struct device *dev)
 		dev_err(dev, "Failed to register mdio bus.\n");
 		return -ENODEV;
 	}
-	npp = of_get_parent(np);
+	//npp = of_get_parent(np);
 
-	of_address_to_resource(npp, 0, &res);
-	if (lp->ndev->mem_start != res.start) {
-		struct phy_device *phydev;
-		phydev = of_phy_find_device(lp->phy_node);
-		if (!phydev)
-			dev_info(dev,
-				 "MDIO of the phy is not registered yet\n");
-		else
-			put_device(&phydev->mdio.dev);
-		return 0;
-	}
+	//of_address_to_resource(npp, 0, &res);
+	//if (lp->ndev->mem_start != res.start) {
+	//	struct phy_device *phydev;
+	//	phydev = of_phy_find_device(lp->phy_node);
+	//	if (!phydev)
+	//		dev_info(dev,
+	//			 "MDIO of the phy is not registered yet\n");
+	//	else
+	//		put_device(&phydev->mdio.dev);
+	//	return 0;
+	//}
 
 	/* Enable the MDIO bus by asserting the enable bit in MDIO Control
 	 * register.
 	 */
-	__raw_writel(XEL_MDIOCTRL_MDIOEN_MASK,
+	sunhv_net_write(XEL_MDIOCTRL_MDIOEN_MASK,
 		     lp->base_addr + XEL_MDIOCTRL_OFFSET);
+	//dev_info(dev,
+	//	"sunhv_net_write(val=%x, addr=%p)\n",
+	//	XEL_MDIOCTRL_MDIOEN_MASK, lp->base_addr + XEL_MDIOCTRL_OFFSET);
+
 
 	bus = mdiobus_alloc();
 	if (!bus) {
@@ -843,8 +1030,8 @@ static int xemaclite_mdio_setup(struct net_local *lp, struct device *dev)
 		return -ENOMEM;
 	}
 
-	snprintf(bus->id, MII_BUS_ID_SIZE, "%.8llx",
-		 (unsigned long long)res.start);
+	snprintf(bus->id, MII_BUS_ID_SIZE, "%p",
+		 (void *)res.start);
 	bus->priv = lp;
 	bus->name = "Xilinx Emaclite MDIO";
 	bus->read = xemaclite_mdio_read;
@@ -899,12 +1086,14 @@ static void xemaclite_adjust_link(struct net_device *ndev)
 static int xemaclite_open(struct net_device *dev)
 {
 	struct net_local *lp = netdev_priv(dev);
-	int retval;
+	//int retval;
+	u32 reg_data;
 
 	/* Just to be safe, stop the device first */
 	xemaclite_disable_interrupts(lp);
 
 	if (lp->phy_node) {
+		//dev_info(&lp->ndev->dev, "lp->phy_node valid in xemaclite_open\n");
 		u32 bmcr;
 
 		lp->phy_dev = of_phy_connect(lp->ndev, lp->phy_node,
@@ -938,16 +1127,32 @@ static int xemaclite_open(struct net_device *dev)
 	xemaclite_update_address(lp, dev->dev_addr);
 
 	/* Grab the IRQ */
-	retval = request_irq(dev->irq, xemaclite_interrupt, 0, dev->name, dev);
-	if (retval) {
-		dev_err(&lp->ndev->dev, "Could not allocate interrupt %d\n",
-			dev->irq);
-		if (lp->phy_dev)
-			phy_disconnect(lp->phy_dev);
-		lp->phy_dev = NULL;
+	//retval = request_irq(dev->irq, xemaclite_interrupt, 0, dev->name, dev);
+	//if (retval) {
+	//	dev_err(&lp->ndev->dev, "Could not allocate interrupt %d\n",
+	//		dev->irq);
+	//	if (lp->phy_dev)
+	//		phy_disconnect(lp->phy_dev);
+	//	lp->phy_dev = NULL;
 
-		return retval;
-	}
+	//	return retval;
+	//}
+
+	// Put MAC into loopback mode
+/*
+	AL_DEBUG("Putting MAC into loopback mode");
+	reg_data = sunhv_net_read(lp->base_addr + XEL_TSR_OFFSET);
+	AL_ADDRVAL(lp->base_addr + XEL_TSR_OFFSET, reg_data);
+	reg_data |= XEL_TSR_XMIT_LOOPBACK;
+	sunhv_net_write(reg_data, lp->base_addr + XEL_TSR_OFFSET);
+	// check that reg was actually written
+	reg_data = sunhv_net_read(lp->base_addr + XEL_TSR_OFFSET);
+	AL_ADDRVAL(lp->base_addr + XEL_TSR_OFFSET, reg_data);
+*/	
+
+//    init_timer(&net_poll_timer);
+//    net_poll_timer.function = net_poll;
+//    mod_timer(&net_poll_timer, jiffies + 2);
 
 	/* Enable Interrupts */
 	xemaclite_enable_interrupts(lp);
@@ -972,11 +1177,13 @@ static int xemaclite_close(struct net_device *dev)
 
 	netif_stop_queue(dev);
 	xemaclite_disable_interrupts(lp);
-	free_irq(dev->irq, dev);
+	//free_irq(dev->irq, dev);
 
 	if (lp->phy_dev)
 		phy_disconnect(lp->phy_dev);
 	lp->phy_dev = NULL;
+
+//	del_timer(&net_poll_timer);
 
 	return 0;
 }
@@ -1005,6 +1212,7 @@ static int xemaclite_send(struct sk_buff *orig_skb, struct net_device *dev)
 	len = orig_skb->len;
 
 	new_skb = orig_skb;
+ 	AL_DEBUG("Calling xemaclite_send\n");
 
 	spin_lock_irqsave(&lp->reset_lock, flags);
 	if (xemaclite_send_data(lp, (u8 *) new_skb->data, len) != 0) {
@@ -1089,6 +1297,8 @@ static int xemaclite_of_probe(struct platform_device *ofdev)
 	struct device *dev = &ofdev->dev;
 	const void *mac_address;
 
+	char macaddr[] = {0x52, 0x54, 0x00, 0xA1, 0xEC, 0x00};
+
 	int rc = 0;
 
 	dev_info(dev, "Device Tree Probing\n");
@@ -1104,7 +1314,10 @@ static int xemaclite_of_probe(struct platform_device *ofdev)
 	lp = netdev_priv(ndev);
 	lp->ndev = ndev;
 
+    emaclite_net_device = ndev;
+
 	/* Get IRQ for the device */
+	/*
 	res = platform_get_resource(ofdev, IORESOURCE_IRQ, 0);
 	if (!res) {
 		dev_err(dev, "no IRQ found\n");
@@ -1113,9 +1326,40 @@ static int xemaclite_of_probe(struct platform_device *ofdev)
 	}
 
 	ndev->irq = res->start;
+	*/
+	ndev->irq = ofdev->archdata.irqs[0];
 
 	res = platform_get_resource(ofdev, IORESOURCE_MEM, 0);
-	lp->base_addr = devm_ioremap_resource(&ofdev->dev, res);
+	if (!res) {
+		dev_err(dev, "platform_get_resource returned 0\n");
+		rc = PTR_ERR(0);
+		goto error;
+	}
+
+	// allocate page in tlb for device
+	//unsigned long tte_vaddr = 0xfffffffff0d00000;
+	//unsigned long phys_page = 0x000000fff0d00000;
+	//unsigned long tte_data = (_PAGE_VALID | _PAGE_SZ64K_4U |
+	//	        _PAGE_P_4V | _PAGE_W_4V);
+
+	//tte_data = tte_data | phys_page;
+
+	//unsigned long ret = sun4v_mmu_map_perm_addr(tte_vaddr, 0, tte_data, HV_MMU_DMMU);
+
+	//if (ret != 0) {
+	//	prom_printf("hypervisor_tlb_lock[%lx:%x:%lx:%lx]: "
+	//		    "errors with %lx\n", tte_vaddr, 0, tte_data, HV_MMU_DMMU, ret);
+	//	prom_halt();
+	//}
+
+	//res->start = 0x000000fff0d00000;
+	res->start = 0xfffffffff0d00000;
+	res->end = (res->start + 0x10000) - 1;
+	//lp->base_addr = devm_ioremap_resource(&ofdev->dev, res);
+	//lp->base_addr = (unsigned char __iomem *) __pa(ndev);
+	//lp->base_addr = 0x000000fff0d00000;
+	lp->base_addr = 0xfffffffff0d00000;
+	AL_DEBUG("Base_addr is: %p\n", lp->base_addr);
 	if (IS_ERR(lp->base_addr)) {
 		rc = PTR_ERR(lp->base_addr);
 		goto error;
@@ -1127,9 +1371,9 @@ static int xemaclite_of_probe(struct platform_device *ofdev)
 	spin_lock_init(&lp->reset_lock);
 	lp->next_tx_buf_to_use = 0x0;
 	lp->next_rx_buf_to_use = 0x0;
-	lp->tx_ping_pong = get_bool(ofdev, "xlnx,tx-ping-pong");
-	lp->rx_ping_pong = get_bool(ofdev, "xlnx,rx-ping-pong");
-	mac_address = of_get_mac_address(ofdev->dev.of_node);
+	lp->tx_ping_pong = 1; //get_bool(ofdev, "xlnx,tx-ping-pong");
+	lp->rx_ping_pong = 1; //get_bool(ofdev, "xlnx,rx-ping-pong");
+	mac_address = (void *)macaddr; //of_get_mac_address(ofdev->dev.of_node);
 
 	if (mac_address) {
 		/* Set the MAC address. */
@@ -1139,14 +1383,30 @@ static int xemaclite_of_probe(struct platform_device *ofdev)
 		eth_hw_addr_random(ndev);
 	}
 
+	//rc = PTR_ERR(0);
+	//goto error;
+
 	/* Clear the Tx CSR's in case this is a restart */
-	__raw_writel(0, lp->base_addr + XEL_TSR_OFFSET);
-	__raw_writel(0, lp->base_addr + XEL_BUFFER_OFFSET + XEL_TSR_OFFSET);
+	sunhv_net_write(0, lp->base_addr + XEL_TSR_OFFSET);
+//	dev_info(dev,
+//		"sunhv_net_write(val=%x, addr=%p)\n",
+//		0, lp->base_addr + XEL_TSR_OFFSET);
+
+	sunhv_net_write(0, lp->base_addr + XEL_BUFFER_OFFSET + XEL_TSR_OFFSET);
+//	dev_info(dev,
+//		"sunhv_net_write(val=%x, addr=%p)\n",
+//		0, lp->base_addr + XEL_BUFFER_OFFSET + XEL_TSR_OFFSET);
+
+	dev_info(dev, "Clear the Tx CSR's in case this is a restart\n");
 
 	/* Set the MAC address in the EmacLite device */
 	xemaclite_update_address(lp, ndev->dev_addr);
+	dev_info(dev, "Set the MAC address in the EmacLite device\n");
 
-	lp->phy_node = of_parse_phandle(ofdev->dev.of_node, "phy-handle", 0);
+	//lp->phy_node = of_parse_phandle(ofdev->dev.of_node, "phy-handle", 0);
+	lp->phy_node = of_find_node_by_name(NULL, "axi_ethernetlite_0_mdio");
+	if (!lp->phy_node)
+		dev_warn(&ofdev->dev, "mdio node not found\n");
 	rc = xemaclite_mdio_setup(lp, &ofdev->dev);
 	if (rc)
 		dev_warn(&ofdev->dev, "error registering MDIO bus\n");
@@ -1165,10 +1425,25 @@ static int xemaclite_of_probe(struct platform_device *ofdev)
 		goto error;
 	}
 
+
+	/* Grab the IRQ */
+	int retval;
+	retval = request_irq(ofdev->archdata.irqs[0], xemaclite_interrupt, 0, ndev->name, ndev);
+	if (retval) {
+		dev_err(dev, "Could not allocate interrupt %d\n",
+			ndev->irq);
+		if (lp->phy_dev)
+			phy_disconnect(lp->phy_dev);
+		lp->phy_dev = NULL;
+
+		return retval;
+	}
+
+
 	dev_info(dev,
-		 "Xilinx EmacLite at 0x%08X mapped to 0x%08X, irq=%d\n",
-		 (unsigned int __force)ndev->mem_start,
-		 (unsigned int __force)lp->base_addr, ndev->irq);
+		 "Xilinx EmacLite at 0x%p mapped to 0x%p, irq=%d\n",
+		 (void *)ndev->mem_start,
+		 lp->base_addr, ndev->irq);
 	return 0;
 
 error:
@@ -1192,6 +1467,8 @@ static int xemaclite_of_remove(struct platform_device *of_dev)
 
 	struct net_local *lp = netdev_priv(ndev);
 
+	free_irq(ndev->irq, ndev);
+
 	/* Un-register the mii_bus, if configured */
 	if (lp->has_mdio) {
 		mdiobus_unregister(lp->mii_bus);
@@ -1206,6 +1483,8 @@ static int xemaclite_of_remove(struct platform_device *of_dev)
 
 	xemaclite_remove_ndev(ndev);
 
+    emaclite_net_device = NULL;
+
 	return 0;
 }
 
@@ -1218,6 +1497,22 @@ xemaclite_poll_controller(struct net_device *ndev)
 	enable_irq(ndev->irq);
 }
 #endif
+
+//static void net_poll(unsigned long arg)
+//{
+//    struct net_device *ndev = emaclite_net_device;
+//	struct net_local *lp = netdev_priv(ndev);
+//
+//	/* Just to be safe, stop the device first */
+//	xemaclite_disable_interrupts(lp);
+//	//disable_irq(ndev->irq);
+//	xemaclite_interrupt(ndev->irq, ndev);
+//	//enable_irq(ndev->irq);
+//	/* Enable Interrupts */
+//	xemaclite_enable_interrupts(lp);
+//
+//    mod_timer(&net_poll_timer, jiffies + 2);
+//}
 
 static struct net_device_ops xemaclite_netdev_ops = {
 	.ndo_open		= xemaclite_open,
@@ -1232,12 +1527,13 @@ static struct net_device_ops xemaclite_netdev_ops = {
 
 /* Match table for OF platform binding */
 static const struct of_device_id xemaclite_of_match[] = {
-	{ .compatible = "xlnx,opb-ethernetlite-1.01.a", },
-	{ .compatible = "xlnx,opb-ethernetlite-1.01.b", },
-	{ .compatible = "xlnx,xps-ethernetlite-1.00.a", },
-	{ .compatible = "xlnx,xps-ethernetlite-2.00.a", },
-	{ .compatible = "xlnx,xps-ethernetlite-2.01.a", },
-	{ .compatible = "xlnx,xps-ethernetlite-3.00.a", },
+	{ .compatible = "SUNW,t1-fpga-snet", },
+	//{ .compatible = "xlnx,opb-ethernetlite-1.01.a", },
+	//{ .compatible = "xlnx,opb-ethernetlite-1.01.b", },
+	//{ .compatible = "xlnx,xps-ethernetlite-1.00.a", },
+	//{ .compatible = "xlnx,xps-ethernetlite-2.00.a", },
+	//{ .compatible = "xlnx,xps-ethernetlite-2.01.a", },
+	//{ .compatible = "xlnx,xps-ethernetlite-3.00.a", },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, xemaclite_of_match);
