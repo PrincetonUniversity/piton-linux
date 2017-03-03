@@ -11,3 +11,6 @@ obj-$(CONFIG_SUNVNET_COMMON) += sunvnet_common.o
 obj-$(CONFIG_SUNVNET) += sunvnet.o
 obj-$(CONFIG_LDMVSW) += ldmvsw.o
 obj-$(CONFIG_NIU) += niu.o
+obj-$(CONFIG_OPENSPARC_NET)	+= sunhv_net_mod.o
+
+sunhv_net_mod-y	:= sunhv_net.o sunhv_net_hcall.o
