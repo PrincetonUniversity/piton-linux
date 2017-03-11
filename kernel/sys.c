@@ -307,6 +307,178 @@ out_unlock:
 	return retval;
 }
 
+
+/*
+ * Returns true if current's euid is same as p's uid or euid.
+ *
+ * Called with rcu_read_lock, creds are safe
+ */
+static bool set_one_execd_perm(struct task_struct *p)
+{
+	const struct cred *cred = current_cred(), *pcred = __task_cred(p);
+
+	if (uid_eq(pcred->uid,  cred->euid) ||
+	    uid_eq(pcred->euid, cred->euid))
+		return true;
+
+	return false;
+}
+
+/*
+ * set the execd_friendly field of a task
+ * - the caller must hold the RCU read lock
+ */
+static int set_one_execd(struct task_struct *p, int value, int error)
+{
+	if (!set_one_execd_perm(p)) {
+		error = -EPERM;
+		goto out;
+	}
+	if (error == -ESRCH)
+		error = 0; 
+
+	// TODO: use another function (in core.c) for this 
+	p->execd_friendly = value;
+out:
+	return error;
+}
+
+/* 
+ * This syscall handler was added to implement turn on execution 
+ * drafting on a particular thread or group of threads
+ *
+ * the value for execdrafting is treated as off for 0 and true otherwise
+ */
+SYSCALL_DEFINE3(setexecdrafting, int, which, int, who, int, value)
+{
+	struct task_struct *g, *p;
+	struct user_struct *user;
+	const struct cred *cred = current_cred();
+	int error = -EINVAL;
+	struct pid *pgrp;
+	kuid_t uid;
+
+	if (which > PRIO_USER || which < PRIO_PROCESS)
+		goto out;
+
+	/* normalize: avoid signed division (rounding problems) */
+	error = -ESRCH;
+	if (value != 0)
+		value = 1;
+
+	rcu_read_lock();
+	read_lock(&tasklist_lock);
+	switch (which) {
+	case PRIO_PROCESS:
+		if (who)
+			p = find_task_by_vpid(who);
+		else
+			p = current;
+		if (p)
+			error = set_one_prio(p, value, error);
+		break;
+	case PRIO_PGRP:
+		if (who)
+			pgrp = find_vpid(who);
+		else
+			pgrp = task_pgrp(current);
+		do_each_pid_thread(pgrp, PIDTYPE_PGID, p) {
+			error = set_one_execd(p, value, error);
+		} while_each_pid_thread(pgrp, PIDTYPE_PGID, p);
+		break;
+	case PRIO_USER:
+		uid = make_kuid(cred->user_ns, who);
+		user = cred->user;
+		if (!who)
+			uid = cred->uid;
+		else if (!uid_eq(uid, cred->uid)) {
+			user = find_user(uid);
+			if (!user)
+				goto out_unlock;	/* No processes for this user */
+		}
+		do_each_thread(g, p) {
+			if (uid_eq(task_uid(p), uid) && task_pid_vnr(p))
+				error = set_one_execd(p, value, error);
+		} while_each_thread(g, p);
+		if (!uid_eq(uid, cred->uid))
+			free_uid(user);		/* For find_user() */
+		break;
+	}
+out_unlock:
+	read_unlock(&tasklist_lock);
+	rcu_read_unlock();
+out:
+	return error;
+}
+
+/*
+ * Ugh. To avoid negative return values, "getpriority()" will
+ * not return the normal nice-value, but a negated value that
+ * has been offset by 20 (ie it returns 40..1 instead of -20..19)
+ * to stay compatible.
+ */
+SYSCALL_DEFINE2(getexecdvalue, int, which, int, who)
+{
+	struct task_struct *g, *p;
+	struct user_struct *user;
+	const struct cred *cred = current_cred();
+	long value, retval = -ESRCH;
+	struct pid *pgrp;
+	kuid_t uid;
+
+	if (which > PRIO_USER || which < PRIO_PROCESS)
+		return -EINVAL;
+
+	rcu_read_lock();
+	read_lock(&tasklist_lock);
+	switch (which) {
+	case PRIO_PROCESS:
+		if (who)
+			p = find_task_by_vpid(who);
+		else
+			p = current;
+		if (p) {
+			value = p->execd_friendly;
+			retval = value;
+		}
+		break;
+	case PRIO_PGRP:
+		if (who)
+			pgrp = find_vpid(who);
+		else
+			pgrp = task_pgrp(current);
+		do_each_pid_thread(pgrp, PIDTYPE_PGID, p) {
+			value = p->execd_friendly;
+			retval = value;
+		} while_each_pid_thread(pgrp, PIDTYPE_PGID, p);
+		break;
+	case PRIO_USER:
+		uid = make_kuid(cred->user_ns, who);
+		user = cred->user;
+		if (!who)
+			uid = cred->uid;
+		else if (!uid_eq(uid, cred->uid)) {
+			user = find_user(uid);
+			if (!user)
+				goto out_unlock;	/* No processes for this user */
+		}
+		do_each_thread(g, p) {
+			if (uid_eq(task_uid(p), uid) && task_pid_vnr(p)) {
+				value = p->execd_friendly;
+				retval = value;
+			}
+		} while_each_thread(g, p);
+		if (!uid_eq(uid, cred->uid))
+			free_uid(user);		/* for find_user() */
+		break;
+	}
+out_unlock:
+	read_unlock(&tasklist_lock);
+	rcu_read_unlock();
+
+	return retval;
+}
+
 /*
  * Unprivileged users may change the real gid to the effective gid
  * or vice versa.  (BSD-style)

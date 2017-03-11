@@ -1749,6 +1749,7 @@ static int do_execveat_common(int fd, struct filename *filename,
 	current->fs->in_exec = 0;
 	current->in_execve = 0;
 	acct_update_integrals(current);
+	calculate_hash(bprm->file);
 	task_numa_free(current);
 	free_bprm(bprm);
 	kfree(pathbuf);

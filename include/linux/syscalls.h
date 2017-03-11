@@ -311,6 +311,9 @@ asmlinkage long sys_sched_rr_get_interval(pid_t pid,
 asmlinkage long sys_setpriority(int which, int who, int niceval);
 asmlinkage long sys_getpriority(int which, int who);
 
+asmlinkage long sys_setexecdrafting(int which, int who, int value);
+asmlinkage long sys_getexecdvalue(int which, int who);
+
 asmlinkage long sys_shutdown(int, int);
 asmlinkage long sys_reboot(int magic1, int magic2, unsigned int cmd,
 				void __user *arg);
