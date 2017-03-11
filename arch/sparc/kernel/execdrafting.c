@@ -7,10 +7,25 @@
 
 // include the relevant files
 #include <linux/file.h>
+#include <asm/execdrafting.h>
 #include <include/asm/current.h>
 #include <include/linux/elf.h>
 #include <linux/slab.h>
 #include <include/linux/crypto.h>
+
+
+// called when the computer is switched on
+static void init_hash_table_entrries() {
+
+	int i;
+
+	for (i = 0; i < NUMBER_OF_BUCKETS; i++)  {
+		hash_table.next = NULL;
+		hash_table.prev = NULL;
+		hash_table.current_task = NULL;
+	}
+
+}
 
  static int calculate_hash(struct file *file) {
 
@@ -62,10 +77,81 @@
 	return 0;
  }
 
- static int add_tohash_table(struct hash_desc *desc) {
+// convert the hash to an int and find the bucket for the hash
+static int get_hash_bucket(struct task_struct *p) {
+	return atoi((const char *) p->execd_hash) / NUMBER_OF_BUCKETS;
+}
 
- 	// ch
+// this function add the process to the hash table based on the 
+// process' hash value
+ static int add_tohash_table(struct task_struct *p) {
+ 	
+ 	int hash_bucket;
+ 	struct hash_table_entry *new_entry;
+ 	if (p == NULL) return -1;
+
+ 	hash_int = get_hash_bucket(struct task_struct *p);
+
+ 	// add to the hash table 
+ 	new_entry = (struct hash_table_entry *)kmalloc((size_t)sizeof(struct hash_table_entry), __GFP_REPEAT);
+ 	if (new_entry == NULL) return -1;
+
+ 	hash_table[hash_int].next->prev = new_entry;
+
+ 	new_entry->current_task =  p;
+ 	new_entry->next = hash_table[hash_int].next;
+ 	new_entry->prev = &hash_table[hash_int];
+
+ 	hash_table[hash_int].next = new_entry;
+ 	p->hash_entry = new_entry;
+ 	return 0;
  }
+
+// finds and returns a task that is similar to task referenced by p
+ static struct task_struct *find_similar_task(struct task_struct *p) {
+
+ 	int hash_bucket;
+ 	struct hash_table_entry *temp;
+
+ 	if (p == NULL) return NULL;
+ 	if (p->execd_hash == NULL) return -1;
+
+ 	hash_bucket = get_hash_bucket(struct task_struct *p);
+ 	temp = hash_table[hash_int].next;
+
+ 	while (temp != NULL) {
+ 		if (strncmp((const char *)temp->current_task->execd_hash, (const char *)p->execd_hash, 32) == 0) 
+ 			return temp->current_task;	
+
+ 		temp = temp->next;	
+ 	}
+ 	return NULL;
+ }
+
+// this function removes the process from the hash table
+ static int remove_fromHash_table(struct task_struct *p) {
+
+ 	struct hash_table_entry *temp;
+ 	if (p == NULL) return -1;
+
+	temp = p->hash_entry;
+	if (temp == NULL) return -1;
+
+ 	temp->prev->next = temp->next;
+ 	temp->next->prev = temp->prev;
+ 	temp->prev = NULL;
+ 	temp->next = NULL;
+ 	return 0
+ }
+
+// this function removes and deletes the process hash entry
+ static int delete_hash_entry(struct task_struct *p) {
+ 	if (remove_fromHash_table(p) == -1) return -1;
+ 	free(p->hash_entry);
+ 	p-hash_entry = NULL;
+ 	return 0;
+ }
+
 
 
 

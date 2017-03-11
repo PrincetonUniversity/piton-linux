@@ -1501,8 +1501,10 @@ struct task_struct {
 	int on_rq;
 
 	int prio, static_prio, normal_prio;
+	
 	int execd_friendly;
 	u8 execd_hash[32]; // TODO: Make this a constant somewhere
+	struct hash_table_entry hash_entry;
 
 	unsigned int rt_priority;
 	const struct sched_class *sched_class;
