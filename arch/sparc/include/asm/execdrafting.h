@@ -26,7 +26,7 @@ struct hash_table_roots {
 // the hash table; probably need to initialize this when the computer gets started 
 static struct hash_table_entry hash_table[NUMBER_OF_BUCKETS];
 
-static void init_hash_table_entrries();
+static void init_hash_table_entrries(void);
 static int calculate_hash(struct file *file);
 static int add_tohash_table(struct task_struct *p);
 static int remove_fromHash_table(struct task_struct *p);

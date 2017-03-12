@@ -3366,6 +3366,9 @@ static void __sched notrace __schedule(bool preempt)
 		if (unlikely(signal_pending_state(prev->state, prev))) {
 			prev->state = TASK_RUNNING;
 		} else {
+
+			// need to decide when a process gets up to sleep
+			
 			deactivate_task(rq, prev, DEQUEUE_SLEEP);
 			prev->on_rq = 0;
 
@@ -3397,6 +3400,13 @@ static void __sched notrace __schedule(bool preempt)
 		rq->nr_switches++;
 		rq->curr = next;
 		++*switch_count;
+
+		// remove the next task from the hash table 
+		// can we assume that the execd hardware can do all the context switch needed?
+
+		// add the additon to the process for the wake_up call as well
+
+
 
 		trace_sched_switch(preempt, prev, next);
 		rq = context_switch(rq, prev, next, cookie); /* unlocks the rq */

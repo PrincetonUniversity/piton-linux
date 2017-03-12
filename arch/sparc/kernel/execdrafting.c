@@ -15,7 +15,7 @@
 
 
 // called when the computer is switched on
-static void init_hash_table_entrries() {
+static void init_hash_table_entrries(void) {
 
 	int i;
 
