@@ -7,24 +7,23 @@
 
 // include the relevant files
 #include <linux/file.h>
-#include <asm/execdrafting.h>
-#include <include/asm/current.h>
-#include <include/linux/elf.h>
+#include <linux/execdrafting.h>
+#include <linux/elf.h>
 #include <linux/slab.h>
-#include <include/linux/crypto.h>
+#include <ilinux/crypto.h>
 
+
+// the hash table; probably need to initialize this when the computer gets started 
+static struct hash_table_entry hash_table[NUMBER_OF_BUCKETS];
 
 // called when the computer is switched on
 static void init_hash_table_entrries(void) {
-
 	int i;
-
 	for (i = 0; i < NUMBER_OF_BUCKETS; i++)  {
-		hash_table.next = NULL;
-		hash_table.prev = NULL;
-		hash_table.current_task = NULL;
+		hash_table[i].next = NULL;
+		hash_table[i].prev = NULL;
+		hash_table[i].current_task = NULL;
 	}
-
 }
 
  static int calculate_hash(struct file *file) {
@@ -148,7 +147,7 @@ static int get_hash_bucket(struct task_struct *p) {
  static int delete_hash_entry(struct task_struct *p) {
  	if (remove_fromHash_table(p) == -1) return -1;
  	free(p->hash_entry);
- 	p-hash_entry = NULL;
+ 	p->hash_entry = NULL;
  	return 0;
  }
 

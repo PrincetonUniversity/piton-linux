@@ -8,7 +8,8 @@
 // include the relevant files
 #include <linux/file.h>
 #include <linux/sched.h>
-#include <include/linux/crypto.h>
+#include <linux/crypto.h>
+#include <linux/sched.h>
 
 // the entry used for the hash table 
 struct hash_table_entry {
@@ -22,9 +23,6 @@ struct hash_table_roots {
 }
 
 #define NUMBER_OF_BUCKETS 1000
-
-// the hash table; probably need to initialize this when the computer gets started 
-static struct hash_table_entry hash_table[NUMBER_OF_BUCKETS];
 
 static void init_hash_table_entrries(void);
 static int calculate_hash(struct file *file);
