@@ -10,8 +10,8 @@
 #include <linux/execdrafting.h>
 #include <linux/elf.h>
 #include <linux/slab.h>
-#include <linux/crypto.h>
-
+#include <crypto/hash.h>
+#include <crypto/md5.h>
 
 /* the hash table; probably need to initialize this when the computer gets started */
 static struct hash_table_entry hash_table[NUMBER_OF_BUCKETS];
@@ -32,8 +32,7 @@ int calculate_hash(struct file *file) {
  	Elf32_Shdr *sectionHeader;
  	uint64_t i, sectionSize, sectionOffset, position;
  	char *buffer;
- 	struct scatterlist sg;
-	struct hash_desc desc;
+	struct shash_desc desc;
  	
  	/* read the header */
  	position = 0;
@@ -65,14 +64,19 @@ int calculate_hash(struct file *file) {
 	if (buffer == NULL) return -1; 
 	vfs_read(file, buffer, sectionSize, &sectionOffset);
 
+    /*
 	sg_init_one(&sg, buffer, sectionSize);
 	desc.tfm = crypto_alloc_hash("md5", 0, CRYPTO_ALG_ASYNC);
 	crypto_hash_init(&desc);
 	crypto_hash_update(&desc, &sg, sectionSize);
 	crypto_hash_final(&desc, current->execd_hash);
-	crypto_free_hash(desc.tfm);
+	crypto_free_hash(desc.tfm); */
+
+	md5_init(&desc);
+	md5_update(&desc, (const u8 *)buffer, (unsigned int) sectionSize);
+	md5_final(&desc, (u8 *)&current->execd_hash);
 	free(buffer);
-	
+
 	return 0;
  }
 
