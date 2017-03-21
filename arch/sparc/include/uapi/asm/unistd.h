@@ -426,7 +426,7 @@
 #define __NR_preadv2		358
 #define __NR_pwritev2		359
 
-// added these values 
+/* added these values */
 #define __NR_setexecdrafting	360
 #define __NR_getexecdvalue		361
 

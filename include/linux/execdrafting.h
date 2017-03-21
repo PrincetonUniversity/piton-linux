@@ -5,11 +5,11 @@
  * 
  */
 
-// include the relevant files
+/* include the relevant files */
 #include <linux/file.h>
 #include <linux/sched.h>
 
-// the entry used for the hash table 
+/* the entry used for the hash table */ 
 struct hash_table_entry {
 	struct task_struct *current_task;
 	struct hash_table_entry *next;

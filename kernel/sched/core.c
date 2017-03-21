@@ -759,7 +759,7 @@ static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 		sched_info_queued(rq, p);
 	p->sched_class->enqueue_task(rq, p, flags);
 
-	// add hash to the table 
+	/* add hash to the table */
 	add_tohash_table(p);
 }
 
@@ -770,7 +770,7 @@ static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
 		sched_info_dequeued(rq, p);
 	p->sched_class->dequeue_task(rq, p, flags);
 
-	// remove hash from the table
+	/* remove hash from the table */
 	delete_hash_entry(p);
 }
 
