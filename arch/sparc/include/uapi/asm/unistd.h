@@ -427,10 +427,10 @@
 #define __NR_pwritev2		359
 
 /* added these values */
-#define __NR_setexecdrafting	360
+#define __NR_setexecdrafting	362
 #define __NR_getexecdvalue		361
 
-#define NR_syscalls		362 // changed from 360
+#define NR_syscalls		360 // changed from 360
 
 /* Bitmask values returned from kern_features system call.  */
 #define KERN_FEATURE_MIXED_MODE_STACK	0x00000001
