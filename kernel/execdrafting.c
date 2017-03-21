@@ -6,7 +6,7 @@
  */
 
 // include the relevant files
-#include <linux/file.h>
+#include <linux/fs.h>
 #include <linux/execdrafting.h>
 #include <linux/elf.h>
 #include <linux/slab.h>
@@ -48,7 +48,7 @@ int calculate_hash(struct file *file) {
 	for (i = 0; i < ehdr.e_shnum; i++) {
 		position = i * sizeof(Elf32_Ehdr);
 		sectionHeader = (Elf32_Shdr*)&buffer[position];
-		if(!strcmp(sectionHeader->sh_name, ".text")) {
+		if(!strcmp((const char *)&sectionHeader->sh_name, ".text")) {
 			sectionOffset = sectionHeader->sh_offset;
 			sectionSize = sectionHeader->sh_size;
 			break;
@@ -59,7 +59,7 @@ int calculate_hash(struct file *file) {
 	if (sectionHeader == NULL) return -1;
 
 	/* read the section if we found it and compute the has of the text section */
-	free(buffer);
+	kfree((const void *) buffer);
 	buffer = (char *)kmalloc((size_t)sectionSize, __GFP_REPEAT);
 	if (buffer == NULL) return -1; 
 	vfs_read(file, buffer, sectionSize, &sectionOffset);
@@ -75,7 +75,7 @@ int calculate_hash(struct file *file) {
 	md5_init(&desc);
 	md5_update(&desc, (const u8 *)buffer, (unsigned int) sectionSize);
 	md5_final(&desc, (u8 *)&current->execd_hash);
-	free(buffer);
+	kfree((const void *) buffer);
 
 	return 0;
  }
@@ -89,7 +89,7 @@ int get_hash_bucket(struct task_struct *p) {
  process' hash value */
 int add_tohash_table(struct task_struct *p) {
  	
- 	int hash_bucket;
+ 	int hash_int;
  	struct hash_table_entry *new_entry;
  	if (p == NULL) return -1;
 
@@ -113,13 +113,13 @@ int add_tohash_table(struct task_struct *p) {
 /* finds and returns a task that is similar to task referenced by p */
 struct task_struct *find_similar_task(struct task_struct *p) {
 
- 	int hash_bucket;
+ 	int hash_int;
  	struct hash_table_entry *temp;
 
  	if (p == NULL) return NULL;
- 	if (p->execd_hash == NULL) return -1;
+ 	if (p->execd_hash == NULL) return NULL;
 
- 	hash_bucket = get_hash_bucket(struct task_struct *p);
+ 	hash_int = get_hash_bucket(struct task_struct *p);
  	temp = hash_table[hash_int].next;
 
  	while (temp != NULL) {
@@ -144,13 +144,13 @@ int remove_fromHash_table(struct task_struct *p) {
  	temp->next->prev = temp->prev;
  	temp->prev = NULL;
  	temp->next = NULL;
- 	return 0
+ 	return 0;
  }
 
 /* this function removes and deletes the process hash entry */
  int delete_hash_entry(struct task_struct *p) {
  	if (remove_fromHash_table(p) == -1) return -1;
- 	free(p->hash_entry);
+ 	kfree((const void *) p->hash_entry);
  	p->hash_entry = NULL;
  	return 0;
  }

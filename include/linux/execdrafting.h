@@ -12,13 +12,11 @@
 #include <linux/file.h>
 #include <linux/sched.h>
 
-struct hash_table_entry;
-
 /* the entry used for the hash table */ 
 struct hash_table_entry {
 	struct task_struct *current_task;
-	struct hash_table_entry *next;
-	struct hash_table_entry *prev;
+	struct hash_table_entry  *next;
+	struct hash_table_entry  *prev;
 };
 
 struct hash_table_roots {
