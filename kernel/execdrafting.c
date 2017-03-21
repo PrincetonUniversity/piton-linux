@@ -10,7 +10,7 @@
 #include <linux/execdrafting.h>
 #include <linux/elf.h>
 #include <linux/slab.h>
-#include <ilinux/crypto.h>
+#include <linux/crypto.h>
 
 
 /* the hash table; probably need to initialize this when the computer gets started */
