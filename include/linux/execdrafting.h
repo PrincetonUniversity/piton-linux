@@ -5,6 +5,9 @@
  * 
  */
 
+#ifndef _LINUX_EXECD_H
+#define _LINUX_EXECD_H
+
 /* include the relevant files */
 #include <linux/file.h>
 #include <linux/sched.h>
@@ -30,7 +33,7 @@ int delete_hash_entry(struct task_struct *p);
 struct task_struct *find_similar_task(struct task_struct *p);
 
 
-
+#endif
 
 
 

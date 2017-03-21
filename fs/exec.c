@@ -57,6 +57,7 @@
 #include <linux/oom.h>
 #include <linux/compat.h>
 #include <linux/vmalloc.h>
+#include <linux/execdrafting.h>
 
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>
