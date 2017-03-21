@@ -16,11 +16,11 @@ struct hash_table_entry {
 	struct task_struct *current_task;
 	struct hash_table_entry *next;
 	struct hash_table_entry *prev;
-}
+};
 
 struct hash_table_roots {
 	struct hash_table_entry *next;
-}
+};
 
 #define NUMBER_OF_BUCKETS 1000
 
