@@ -17,7 +17,7 @@
 static struct hash_table_entry hash_table[NUMBER_OF_BUCKETS];
 
 // called when the computer is switched on
-static void init_hash_table_entrries(void) {
+void init_hash_table_entrries(void) {
 	int i;
 	for (i = 0; i < NUMBER_OF_BUCKETS; i++)  {
 		hash_table[i].next = NULL;
@@ -26,7 +26,7 @@ static void init_hash_table_entrries(void) {
 	}
 }
 
- static int calculate_hash(struct file *file) {
+int calculate_hash(struct file *file) {
 
  	Elf32_Ehdr ehdr; 
  	Elf32_Shdr *sectionHeader;
@@ -77,13 +77,13 @@ static void init_hash_table_entrries(void) {
  }
 
 // convert the hash to an int and find the bucket for the hash
-static int get_hash_bucket(struct task_struct *p) {
+int get_hash_bucket(struct task_struct *p) {
 	return atoi((const char *) p->execd_hash) / NUMBER_OF_BUCKETS;
 }
 
 // this function add the process to the hash table based on the 
 // process' hash value
- static int add_tohash_table(struct task_struct *p) {
+int add_tohash_table(struct task_struct *p) {
  	
  	int hash_bucket;
  	struct hash_table_entry *new_entry;
@@ -107,7 +107,7 @@ static int get_hash_bucket(struct task_struct *p) {
  }
 
 // finds and returns a task that is similar to task referenced by p
- static struct task_struct *find_similar_task(struct task_struct *p) {
+struct task_struct *find_similar_task(struct task_struct *p) {
 
  	int hash_bucket;
  	struct hash_table_entry *temp;
@@ -128,7 +128,7 @@ static int get_hash_bucket(struct task_struct *p) {
  }
 
 // this function removes the process from the hash table
- static int remove_fromHash_table(struct task_struct *p) {
+int remove_fromHash_table(struct task_struct *p) {
 
  	struct hash_table_entry *temp;
  	if (p == NULL) return -1;
@@ -144,7 +144,7 @@ static int get_hash_bucket(struct task_struct *p) {
  }
 
 // this function removes and deletes the process hash entry
- static int delete_hash_entry(struct task_struct *p) {
+ int delete_hash_entry(struct task_struct *p) {
  	if (remove_fromHash_table(p) == -1) return -1;
  	free(p->hash_entry);
  	p->hash_entry = NULL;

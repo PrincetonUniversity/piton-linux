@@ -24,12 +24,12 @@ struct hash_table_roots {
 
 #define NUMBER_OF_BUCKETS 1000
 
-static void init_hash_table_entrries(void);
-static int calculate_hash(struct file *file);
-static int add_tohash_table(struct task_struct *p);
-static int remove_fromHash_table(struct task_struct *p);
-static int delete_hash_entry(struct task_struct *p);
-static struct task_struct *find_similar_task(struct task_struct *p);
+void init_hash_table_entrries(void);
+int calculate_hash(struct file *file);
+int add_tohash_table(struct task_struct *p);
+int remove_fromHash_table(struct task_struct *p);
+int delete_hash_entry(struct task_struct *p);
+struct task_struct *find_similar_task(struct task_struct *p);
 
 
 
