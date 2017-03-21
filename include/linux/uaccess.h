@@ -6,7 +6,7 @@
 
 static __always_inline void pagefault_disabled_inc(void)
 {
-	//current->pagefault_disabled++;
+	current->pagefault_disabled++;
 }
 
 static __always_inline void pagefault_disabled_dec(void)

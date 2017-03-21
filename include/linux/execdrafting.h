@@ -8,8 +8,6 @@
 // include the relevant files
 #include <linux/file.h>
 #include <linux/sched.h>
-#include <linux/crypto.h>
-#include <linux/sched.h>
 
 // the entry used for the hash table 
 struct hash_table_entry {
