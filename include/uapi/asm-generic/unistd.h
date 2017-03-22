@@ -669,7 +669,7 @@ __SC_COMP(__NR_recvmmsg, sys_recvmmsg, compat_sys_recvmmsg)
 /* added these for execd */
 #define __NR_setexecdrafting 245
 __SC_COMP(__NR_setexecdrafting, sys_setexecdrafting)
-#define __NR_getexecdvalue 245
+#define __NR_getexecdvalue 246
 __SC_COMP(__NR_getexecdvalue, sys_getexecdvalue)
 
 #define __NR_wait4 260
