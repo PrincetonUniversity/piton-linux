@@ -9,6 +9,7 @@
 #include <linux/fs.h>
 #include <linux/execdrafting.h>
 #include <linux/elf.h>
+#include <linux/kernel.h>
 #include <linux/slab.h>
 #include <crypto/hash.h>
 #include <crypto/md5.h>
@@ -82,7 +83,9 @@ int calculate_hash(struct file *file) {
 
 /* convert the hash to an int and find the bucket for the hash */
 int get_hash_bucket(struct task_struct *p) {
-	return atoi((const char *) p->execd_hash) / NUMBER_OF_BUCKETS;
+	 unsigned long res;
+	 kstrtoul((const char *) p->execd_hash, 10 /* base */, &res);
+	return (int) (res / NUMBER_OF_BUCKETS);
 }
 
 /* this function add the process to the hash table based on the 
@@ -93,7 +96,7 @@ int add_tohash_table(struct task_struct *p) {
  	struct hash_table_entry *new_entry;
  	if (p == NULL) return -1;
 
- 	hash_int = get_hash_bucket(struct task_struct *p);
+ 	hash_int = get_hash_bucket(p);
 
  	/* add to the hash table */
  	new_entry = (struct hash_table_entry *)kmalloc((size_t)sizeof(struct hash_table_entry), __GFP_REPEAT);
@@ -119,7 +122,7 @@ struct task_struct *find_similar_task(struct task_struct *p) {
  	if (p == NULL) return NULL;
  	if (p->execd_hash == NULL) return NULL;
 
- 	hash_int = get_hash_bucket(struct task_struct *p);
+ 	hash_int = get_hash_bucket(p);
  	temp = hash_table[hash_int].next;
 
  	while (temp != NULL) {
