@@ -1960,7 +1960,7 @@ struct task_struct {
 
 	int execd_friendly;
 	u8 execd_hash[32]; /* TODO: Make this a constant somewhere */
-	struct hash_table_entry hash_entry;
+	struct hash_table_entry *hash_entry;
 
 /* CPU-specific state of this task */
 	struct thread_struct thread;
