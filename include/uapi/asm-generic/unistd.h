@@ -665,6 +665,13 @@ __SC_COMP(__NR_recvmmsg, sys_recvmmsg, compat_sys_recvmmsg)
  */
 #define __NR_arch_specific_syscall 244
 
+
+/* added these for execd */
+#define __NR_setexecdrafting 245
+__SC_COMP(__NR_setexecdrafting, sys_setexecdrafting)
+#define __NR_getexecdvalue 245
+__SC_COMP(__NR_getexecdvalue, sys_getexecdvalue)
+
 #define __NR_wait4 260
 __SC_COMP(__NR_wait4, sys_wait4, compat_sys_wait4)
 #define __NR_prlimit64 261
