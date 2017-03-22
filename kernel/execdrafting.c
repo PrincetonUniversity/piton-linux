@@ -42,8 +42,8 @@ int calculate_hash(struct file *file) {
 
 	/* get the section headers */
 	position = ehdr.e_shoff;
-	if (buffer == NULL) return -1; 
 	buffer = (char *)kmalloc((size_t)(ehdr.e_shnum * ehdr.e_shentsize), __GFP_REPEAT);
+	if (buffer == NULL) return -1; 
 	vfs_read(file, buffer, ehdr.e_shnum * ehdr.e_shentsize, &position);
 
 	/* find the section header for the text section of the file */
