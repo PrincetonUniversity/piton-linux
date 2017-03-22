@@ -11,6 +11,7 @@
 #include <linux/elf.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
+#include <linux/hash.h>
 #include <crypto/hash.h>
 #include <crypto/md5.h>
 
@@ -71,11 +72,17 @@ int calculate_hash(struct file *file) {
 	crypto_hash_init(&desc);
 	crypto_hash_update(&desc, &sg, sectionSize);
 	crypto_hash_final(&desc, current->execd_hash);
-	crypto_free_hash(desc.tfm); */
+	crypto_free_hash(desc.tfm); 
 
 	md5_init(&desc);
 	md5_update(&desc, (const u8 *)buffer, (unsigned int) sectionSize);
 	md5_final(&desc, (u8 *)&current->execd_hash);
+	*/
+
+	desc.tfm = crypto_alloc_shash("md5", CRYPTO_ALG_TYPE_SHASH, CRYPTO_ALG_ASYNC);
+	crypto_shash_init(&desc);
+	crypto_shash_finup(&desc, (const u8 *)buffer, (unsigned int) sectionSize, (u8 *)&current->execd_hash);
+	crypto_free_shash(desc.tfm);
 	kfree((const void *) buffer);
 
 	return 0;
