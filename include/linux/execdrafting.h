@@ -12,6 +12,8 @@
 #include <linux/file.h>
 #include <linux/sched.h>
 
+#define NUMBER_OF_BUCKETS 1000
+
 /* the hash table; probably need to initialize this when the computer gets started */
 extern struct hash_table_entry hash_table[NUMBER_OF_BUCKETS];
 
@@ -25,8 +27,6 @@ struct hash_table_entry {
 struct hash_table_roots {
 	struct hash_table_entry *next;
 };
-
-#define NUMBER_OF_BUCKETS 1000
 
 void init_hash_table_entrries(void);
 int calculate_hash(struct file *file);
