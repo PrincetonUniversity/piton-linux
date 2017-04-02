@@ -15,9 +15,10 @@
 #include <crypto/hash.h>
 #include <crypto/md5.h>
 
+struct hash_table_entry hash_table[NUMBER_OF_BUCKETS];
+
 /* called when the computer is switched on */
 void init_hash_table_entrries(void) {
-	struct hash_table_entry hash_table[NUMBER_OF_BUCKETS];
 	int i;
 	for (i = 0; i < NUMBER_OF_BUCKETS; i++)  {
 		hash_table[i].next = NULL;
