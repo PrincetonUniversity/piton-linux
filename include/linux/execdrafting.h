@@ -14,9 +14,6 @@
 
 #define NUMBER_OF_BUCKETS 1000
 
-/* the hash table; probably need to initialize this when the computer gets started */
-extern struct hash_table_entry hash_table[NUMBER_OF_BUCKETS];
-
 /* the entry used for the hash table */ 
 struct hash_table_entry {
 	struct task_struct *current_task;
@@ -27,6 +24,9 @@ struct hash_table_entry {
 struct hash_table_roots {
 	struct hash_table_entry *next;
 };
+
+/* the hash table; probably need to initialize this when the computer gets started */
+extern struct hash_table_entry hash_table[NUMBER_OF_BUCKETS];
 
 void init_hash_table_entrries(void);
 int calculate_hash(struct file *file);
