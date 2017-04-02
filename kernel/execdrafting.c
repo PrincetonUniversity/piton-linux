@@ -15,9 +15,6 @@
 #include <crypto/hash.h>
 #include <crypto/md5.h>
 
-/* the hash table; probably need to initialize this when the computer gets started */
-static struct hash_table_entry hash_table[NUMBER_OF_BUCKETS];
-
 /* called when the computer is switched on */
 void init_hash_table_entrries(void) {
 	int i;

@@ -12,6 +12,9 @@
 #include <linux/file.h>
 #include <linux/sched.h>
 
+/* the hash table; probably need to initialize this when the computer gets started */
+extern struct hash_table_entry hash_table[NUMBER_OF_BUCKETS];
+
 /* the entry used for the hash table */ 
 struct hash_table_entry {
 	struct task_struct *current_task;
