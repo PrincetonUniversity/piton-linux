@@ -98,13 +98,12 @@ int get_hash_bucket(struct task_struct *p) {
  process' hash value */
 int add_tohash_table(struct task_struct *p) {
  	
+   /*
  	int hash_int;
  	struct hash_table_entry *new_entry;
  	if (p == NULL) return -1;
 
  	hash_int = get_hash_bucket(p);
-
- 	/* add to the hash table */
  	new_entry = (struct hash_table_entry *)kmalloc((size_t)sizeof(struct hash_table_entry), __GFP_REPEAT);
  	if (new_entry == NULL) return -1;
 
@@ -116,6 +115,7 @@ int add_tohash_table(struct task_struct *p) {
 
  	hash_table[hash_int].next = new_entry;
  	p->hash_entry = new_entry;
+ 	*/
  	return 0;
  }
 
@@ -143,7 +143,7 @@ struct task_struct *find_similar_task(struct task_struct *p) {
 /* this function removes the process from the hash table */
 int remove_fromHash_table(struct task_struct *p) {
 
- 	struct hash_table_entry *temp;
+ 	/*struct hash_table_entry *temp;
  	if (p == NULL) return -1;
 
 	temp = p->hash_entry;
@@ -152,7 +152,7 @@ int remove_fromHash_table(struct task_struct *p) {
  	temp->prev->next = temp->next;
  	temp->next->prev = temp->prev;
  	temp->prev = NULL;
- 	temp->next = NULL;
+ 	temp->next = NULL; */
  	return 0;
  }
 
