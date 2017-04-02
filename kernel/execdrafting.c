@@ -29,23 +29,23 @@ void init_hash_table_entrries(void) {
 
 int calculate_hash(struct file *file) {
 
- 	Elf32_Ehdr ehdr; 
+ 	/*Elf32_Ehdr ehdr; 
  	Elf32_Shdr *sectionHeader;
  	uint64_t i, sectionSize, sectionOffset, position;
  	char *buffer;
 	struct shash_desc desc;
  	
- 	/* read the header */
+ 	/* read the header *
  	position = 0;
  	vfs_read(file, (char *)&ehdr, sizeof(Elf32_Ehdr), &position);
 
-	/* get the section headers */
+	/* get the section headers *
 	position = ehdr.e_shoff;
 	buffer = (char *)kmalloc((size_t)(ehdr.e_shnum * ehdr.e_shentsize), __GFP_REPEAT);
 	if (buffer == NULL) return -1; 
 	vfs_read(file, buffer, ehdr.e_shnum * ehdr.e_shentsize, &position);
 
-	/* find the section header for the text section of the file */
+	/* find the section header for the text section of the file *
 	for (i = 0; i < ehdr.e_shnum; i++) {
 		position = i * sizeof(Elf32_Ehdr);
 		sectionHeader = (Elf32_Shdr*)&buffer[position];
@@ -59,7 +59,7 @@ int calculate_hash(struct file *file) {
 
 	if (sectionHeader == NULL) return -1;
 
-	/* read the section if we found it and compute the has of the text section */
+	/* read the section if we found it and compute the has of the text section *
 	kfree((const void *) buffer);
 	buffer = (char *)kmalloc((size_t)sectionSize, __GFP_REPEAT);
 	if (buffer == NULL) return -1; 
@@ -76,22 +76,25 @@ int calculate_hash(struct file *file) {
 	md5_init(&desc);
 	md5_update(&desc, (const u8 *)buffer, (unsigned int) sectionSize);
 	md5_final(&desc, (u8 *)&current->execd_hash);
-	*/
+	*
 
 	desc.tfm = crypto_alloc_shash("md5", CRYPTO_ALG_TYPE_SHASH, CRYPTO_ALG_ASYNC);
 	crypto_shash_init(&desc);
 	crypto_shash_finup(&desc, (const u8 *)buffer, (unsigned int) sectionSize, (u8 *)&current->execd_hash);
 	crypto_free_shash(desc.tfm);
-	kfree((const void *) buffer);
+	kfree((const void *) buffer); */
 
 	return 0;
  }
 
 /* convert the hash to an int and find the bucket for the hash */
 int get_hash_bucket(struct task_struct *p) {
+	/*
 	 unsigned long res;
-	 kstrtoul((const char *) p->execd_hash, 10 /* base */, &res);
+	 kstrtoul((const char *) p->execd_hash, 10 /* base *, &res);
 	return (int) (res / NUMBER_OF_BUCKETS);
+	*/
+	return 0;
 }
 
 /* this function add the process to the hash table based on the 
@@ -122,7 +125,7 @@ int add_tohash_table(struct task_struct *p) {
 /* finds and returns a task that is similar to task referenced by p */
 struct task_struct *find_similar_task(struct task_struct *p) {
 
- 	int hash_int;
+ 	/*int hash_int;
  	struct hash_table_entry *temp;
 
  	if (p == NULL) return NULL;
@@ -136,8 +139,8 @@ struct task_struct *find_similar_task(struct task_struct *p) {
  			return temp->current_task;	
 
  		temp = temp->next;	
- 	}
- 	return NULL;
+ 	} */
+ 	return p;
  }
 
 /* this function removes the process from the hash table */
@@ -158,9 +161,11 @@ int remove_fromHash_table(struct task_struct *p) {
 
 /* this function removes and deletes the process hash entry */
  int delete_hash_entry(struct task_struct *p) {
+ 	/*
  	if (remove_fromHash_table(p) == -1) return -1;
  	kfree((const void *) p->hash_entry);
  	p->hash_entry = NULL;
+ 	*/
  	return 0;
  }
 
