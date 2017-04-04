@@ -1822,10 +1822,9 @@ static __latent_entropy struct task_struct *copy_process(
 	trace_task_newtask(p, clone_flags);
 	uprobe_copy_process(p, clone_flags);
 
-
 	/* Initialize the excedrafting variables in the struct*/
 	p->execd_friendly = 0;
-	p->hash_entry = null;
+	p->hash_entry = NULL;
 	return p;
 
 bad_fork_cancel_cgroup:
