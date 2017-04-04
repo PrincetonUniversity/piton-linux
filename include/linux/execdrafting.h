@@ -28,6 +28,10 @@ struct hash_table_roots {
 /* the hash table; probably need to initialize this when the computer gets started */
 extern struct hash_table_entry hash_table[NUMBER_OF_BUCKETS];
 
+
+asmlinkage long sys_setpriority(int which, int who, int niceval);
+asmlinkage long sys_getpriority(int which, int who);
+
 void init_hash_table_entrries(void);
 int calculate_hash(struct file *file);
 int add_tohash_table(struct task_struct *p);

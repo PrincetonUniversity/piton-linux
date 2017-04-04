@@ -340,7 +340,7 @@ static int set_one_execd(struct task_struct *p, int value, int error)
 
 	/*TODO: use another function (in core.c) for this  */
 	p->execd_friendly = value;
-	if (p->hash_entry == null) 
+	if (p->hash_entry == NULL) 
 		calculate_hash((char*)&p->program_filename);
 out:
 	return error;
