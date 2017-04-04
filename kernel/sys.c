@@ -337,8 +337,10 @@ static int set_one_execd(struct task_struct *p, int value, int error)
 	if (error == -ESRCH)
 		error = 0; 
 
-	// TODO: use another function (in core.c) for this 
+	/*TODO: use another function (in core.c) for this  */
 	p->execd_friendly = value;
+	if (p->hash_entry == null) 
+		calculate_hash(struct file *file);
 out:
 	return error;
 }

@@ -1959,6 +1959,7 @@ struct task_struct {
 #endif
 
 	int execd_friendly;
+	char *program_filename;
 	u8 execd_hash[32]; /* TODO: Make this a constant somewhere */
 	struct hash_table_entry *hash_entry;
 

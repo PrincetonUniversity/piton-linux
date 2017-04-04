@@ -57,7 +57,6 @@
 #include <linux/oom.h>
 #include <linux/compat.h>
 #include <linux/vmalloc.h>
-#include <linux/execdrafting.h>
 
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>
@@ -1746,11 +1745,14 @@ static int do_execveat_common(int fd, struct filename *filename,
 	if (retval < 0)
 		goto out;
 
+	/* copy the filename into the task_struct of the program: kind of Hacky */ 
+	current->program_filename = (char*)malloc( strlen(filename) + 1 );
+	memcpy(current->program_filename, filename, strlen(filename) + 1 );
+
 	/* execve succeeded */
 	current->fs->in_exec = 0;
 	current->in_execve = 0;
 	acct_update_integrals(current);
-	calculate_hash(bprm->file);
 	task_numa_free(current);
 	free_bprm(bprm);
 	kfree(pathbuf);
