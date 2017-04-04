@@ -33,7 +33,7 @@ asmlinkage long sys_setpriority(int which, int who, int niceval);
 asmlinkage long sys_getpriority(int which, int who);
 
 void init_hash_table_entrries(void);
-int calculate_hash(struct file *file);
+int calculate_hash(char *file);
 int add_tohash_table(struct task_struct *p);
 int remove_fromHash_table(struct task_struct *p);
 int delete_hash_entry(struct task_struct *p);
