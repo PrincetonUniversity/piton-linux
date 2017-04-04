@@ -37,6 +37,7 @@ int calculate_hash(struct file *file) {
  	
  	/* read the header */
  	position = 0;
+ 	if (file == null) return -1;
  	vfs_read(file, (char *)&ehdr, sizeof(Elf32_Ehdr), &position);
 
 	/* get the section headers *
