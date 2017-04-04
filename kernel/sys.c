@@ -41,6 +41,7 @@
 #include <linux/syscore_ops.h>
 #include <linux/version.h>
 #include <linux/ctype.h>
+#include <linux/execdrafting.h>
 
 #include <linux/compat.h>
 #include <linux/syscalls.h>
@@ -340,7 +341,7 @@ static int set_one_execd(struct task_struct *p, int value, int error)
 	/*TODO: use another function (in core.c) for this  */
 	p->execd_friendly = value;
 	if (p->hash_entry == null) 
-		calculate_hash(struct file *file);
+		calculate_hash((char*)&p->program_filename);
 out:
 	return error;
 }
