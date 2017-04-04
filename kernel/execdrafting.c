@@ -12,6 +12,7 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/hash.h>
+#include <linux/types.h>
 #include <crypto/hash.h>
 #include <crypto/md5.h>
 
@@ -31,14 +32,17 @@ int calculate_hash(struct file *file) {
 
  	Elf32_Ehdr ehdr; 
  	Elf32_Shdr *sectionHeader;
- 	uint64_t i, sectionSize, sectionOffset, position;
- 	char *buffer;
+ 	uint64_t i, sectionSize, sectionOffset;
+ 	loff_t position = 0;
+ 	/*char *buffer; */
 	struct shash_desc desc;
+	char buffer[sizeof(Elf32_Ehdr)];
+
  	
  	/* read the header */
  	position = 0;
  	if (file == null) return -1;
- 	vfs_read(file, (char *)&ehdr, sizeof(Elf32_Ehdr), &position);
+ 	vfs_read(file, (char *)&buffer, sizeof(Elf32_Ehdr), &position);
 
 	/* get the section headers *
 	position = ehdr.e_shoff;
