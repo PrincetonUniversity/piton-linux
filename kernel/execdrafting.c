@@ -29,13 +29,13 @@ void init_hash_table_entrries(void) {
 
 int calculate_hash(struct file *file) {
 
- 	/*Elf32_Ehdr ehdr; 
+ 	Elf32_Ehdr ehdr; 
  	Elf32_Shdr *sectionHeader;
  	uint64_t i, sectionSize, sectionOffset, position;
  	char *buffer;
 	struct shash_desc desc;
  	
- 	/* read the header *
+ 	/* read the header */
  	position = 0;
  	vfs_read(file, (char *)&ehdr, sizeof(Elf32_Ehdr), &position);
 
