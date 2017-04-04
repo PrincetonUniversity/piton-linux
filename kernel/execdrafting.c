@@ -28,7 +28,7 @@ void init_hash_table_entrries(void) {
 	}
 }
 
-int calculate_hash(struct file *file) {
+int calculate_hash(char *file) {
 
  	Elf32_Ehdr ehdr; 
  	Elf32_Shdr *sectionHeader;
@@ -41,8 +41,8 @@ int calculate_hash(struct file *file) {
  	
  	/* read the header */
  	position = 0;
- 	if (file == null) return -1;
- 	vfs_read(file, (char *)&buffer, sizeof(Elf32_Ehdr), &position);
+ 	if (file == NULL) return -1;
+ 	/*vfs_read(file, (char *)&buffer, sizeof(Elf32_Ehdr), &position); */
 
 	/* get the section headers *
 	position = ehdr.e_shoff;
