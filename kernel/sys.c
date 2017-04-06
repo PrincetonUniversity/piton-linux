@@ -359,7 +359,7 @@ out:
  */
 SYSCALL_DEFINE3(setexecdrafting, int, which, int, who, int, value)
 {
-	printk("set execd being hit 1 \n");
+	
 	struct task_struct *g, *p;
 	struct user_struct *user;
 	const struct cred *cred = current_cred();
@@ -367,6 +367,7 @@ SYSCALL_DEFINE3(setexecdrafting, int, which, int, who, int, value)
 	struct pid *pgrp;
 	kuid_t uid;
 
+	printk("set execd being hit 1 \n");
 	if (which > PRIO_USER || which < PRIO_PROCESS)
 		goto out;
 
