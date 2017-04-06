@@ -961,7 +961,7 @@ int kernel_read_file_from_path(char *path, void **buf, loff_t *size,
 	if (IS_ERR(file))
 		return PTR_ERR(file);
 
-	ret = kernel_read_file(file, buf, size, max_size, id);
+	ret = kzalloc_read_file(file, buf, size, max_size, id);
 	fput(file);
 	return ret;
 }
@@ -1746,7 +1746,7 @@ static int do_execveat_common(int fd, struct filename *filename,
 		goto out;
 
 	/* copy the filename into the task_struct of the program: kind of Hacky */
-	current->program_filename = (struct filename *)kzmalloc((size_t)sizeof(struct filename), GFP_KERNEL);
+	current->program_filename = (struct filename *)kzalloc((size_t)sizeof(struct filename), GFP_KERNEL);
 	memcpy((void*)current->program_filename, (void*)filename, (size_t)sizeof(struct filename)); 
 	current->hash_entry = NULL;
 
