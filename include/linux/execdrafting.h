@@ -29,7 +29,7 @@ struct hash_table_roots {
 extern struct hash_table_entry hash_table[NUMBER_OF_BUCKETS];
 
 void init_hash_table_entrries(void);
-int calculate_hash(char *file);
+int calculate_hash(struct task_struct *p);
 int add_tohash_table(struct task_struct *p);
 int remove_fromHash_table(struct task_struct *p);
 int delete_hash_entry(struct task_struct *p);

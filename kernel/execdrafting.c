@@ -36,9 +36,8 @@ int calculate_hash(struct task_struct *p) {
 	Elf32_Ehdr ehdr; 
  	Elf32_Shdr *sectionHeader;
  	uint64_t i, sectionSize, sectionOffset;
- 	loff_t position; 
- 	char *buffer; 
- 	struct filename *file;
+ 	loff_t position;  
+ 	struct file *file;
 	struct shash_desc desc;
 	char buffer[sizeof(Elf32_Ehdr)]; 
 	mm_segment_t oldfs;
@@ -49,10 +48,10 @@ int calculate_hash(struct task_struct *p) {
  	position = 0;
  	oldfs = get_fs();
  	set_fs(get_ds());
- 	file = flip_open(p->program_filename->name, O_RDONLY, 0); 
+ 	file = filp_open(p->program_filename->name, O_RDONLY, 0); 
  	vfs_read(file, (char *)&buffer, sizeof(Elf32_Ehdr), &position);
 
- 	flip_close(file, NULL);
+ 	filp_close(file, NULL);
  	set_fs(oldfs);
 
 	/* get the section headers *
