@@ -62,6 +62,9 @@
 #include <asm/io.h>
 #include <asm/unistd.h>
 
+/* to remove later */ 
+#include <linux/printk.h>
+
 #ifndef SET_UNALIGN_CTL
 # define SET_UNALIGN_CTL(a, b)	(-EINVAL)
 #endif
@@ -339,9 +342,11 @@ static int set_one_execd(struct task_struct *p, int value, int error)
 		error = 0; 
 
 	/*TODO: use another function (in core.c) for this  */
+	printk("set execd being hit 2\n");
 	p->execd_friendly = value;
-	/*if (p->hash_entry == NULL) 
-		calculate_hash((char*)&p->program_filename); */
+	if (p->hash_entry == NULL) {
+		printk("exedcd field is not set \n");
+	}
 out:
 	return error;
 }
@@ -354,6 +359,7 @@ out:
  */
 SYSCALL_DEFINE3(setexecdrafting, int, which, int, who, int, value)
 {
+	printk("set execd being hit 1 \n");
 	struct task_struct *g, *p;
 	struct user_struct *user;
 	const struct cred *cred = current_cred();

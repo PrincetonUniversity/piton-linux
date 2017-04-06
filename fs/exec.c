@@ -1745,9 +1745,10 @@ static int do_execveat_common(int fd, struct filename *filename,
 	if (retval < 0)
 		goto out;
 
-	/* copy the filename into the task_struct of the program: kind of Hacky 
-	current->program_filename = (char *)kmalloc((size_t)(strlen(filename->name) + 1), __GFP_REPEAT);
-	memcpy(current->program_filename, (char*)filename->name, strlen(filename->name) + 1 ); */
+	/* copy the filename into the task_struct of the program: kind of Hacky */
+	current->program_filename = (struct filename *)kzmalloc((size_t)sizeof(struct filename), GFP_KERNEL);
+	memcpy((void*)current->program_filename, (void*)filename, (size_t)sizeof(struct filename)); 
+	current->hash_entry = NULL;
 
 	/* execve succeeded */
 	current->fs->in_exec = 0;
