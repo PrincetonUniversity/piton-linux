@@ -30,25 +30,25 @@ void init_hash_table_entrries(void) {
 
 int calculate_hash(char *file) {
 
- 	Elf32_Ehdr ehdr; 
+/* 	Elf32_Ehdr ehdr; 
  	Elf32_Shdr *sectionHeader;
  	uint64_t i, sectionSize, sectionOffset;
- 	loff_t position = 0;
- 	/*char *buffer; */
+ 	loff_t position = 0; */
+ 	/*char *buffer; 
 	struct shash_desc desc;
-	char buffer[sizeof(Elf32_Ehdr)];
+	char buffer[sizeof(Elf32_Ehdr)]; */
 
  	
- 	/* read the header */
+ 	/* read the header 
  	position = 0;
- 	if (file == NULL) return -1;
+ 	if (file == NULL) return -1; */
  	/*vfs_read(file, (char *)&buffer, sizeof(Elf32_Ehdr), &position); */
 
 	/* get the section headers *
 	position = ehdr.e_shoff;
 	buffer = (char *)kmalloc((size_t)(ehdr.e_shnum * ehdr.e_shentsize), __GFP_REPEAT);
 	if (buffer == NULL) return -1; 
-	vfs_read(file, buffer, ehdr.e_shnum * ehdr.e_shentsize, &position);
+	vfs_read(file, buffer, ehdr.e_shnum * ehdr.e_shentsize, &position); */
 
 	/* find the section header for the text section of the file *
 	for (i = 0; i < ehdr.e_shnum; i++) {
@@ -62,13 +62,13 @@ int calculate_hash(char *file) {
 		sectionHeader = NULL;
 	}
 
-	if (sectionHeader == NULL) return -1;
+	if (sectionHeader == NULL) return -1; */
 
 	/* read the section if we found it and compute the has of the text section *
 	kfree((const void *) buffer);
 	buffer = (char *)kmalloc((size_t)sectionSize, __GFP_REPEAT);
 	if (buffer == NULL) return -1; 
-	vfs_read(file, buffer, sectionSize, &sectionOffset);
+	vfs_read(file, buffer, sectionSize, &sectionOffset); */
 
     /*
 	sg_init_one(&sg, buffer, sectionSize);
@@ -81,7 +81,6 @@ int calculate_hash(char *file) {
 	md5_init(&desc);
 	md5_update(&desc, (const u8 *)buffer, (unsigned int) sectionSize);
 	md5_final(&desc, (u8 *)&current->execd_hash);
-	*
 
 	desc.tfm = crypto_alloc_shash("md5", CRYPTO_ALG_TYPE_SHASH, CRYPTO_ALG_ASYNC);
 	crypto_shash_init(&desc);
@@ -96,7 +95,7 @@ int calculate_hash(char *file) {
 int get_hash_bucket(struct task_struct *p) {
 	/*
 	 unsigned long res;
-	 kstrtoul((const char *) p->execd_hash, 10 /* base *, &res);
+	 kstrtoul((const char *) p->execd_hash, 10 *//* base *, &res);
 	return (int) (res / NUMBER_OF_BUCKETS);
 	*/
 	return 0;
