@@ -1749,6 +1749,7 @@ static int do_execveat_common(int fd, struct filename *filename,
 	current->program_filename = kzalloc((size_t)sizeof(struct filename), GFP_KERNEL);
 	memcpy((void*)current->program_filename, (void*)filename, (size_t)sizeof(struct filename)); 
 	current->hash_entry = NULL;
+	current->execd_friendly = 0;
 
 	/* execve succeeded */
 	current->fs->in_exec = 0;
