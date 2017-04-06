@@ -334,15 +334,18 @@ static bool set_one_execd_perm(struct task_struct *p)
  */
 static int set_one_execd(struct task_struct *p, int value, int error)
 {
+	printk("set execd being hit 2\n");
 	if (!set_one_execd_perm(p)) {
 		error = -EPERM;
 		goto out;
 	}
+
+	printk("set execd being hit 3\n");
 	if (error == -ESRCH)
 		error = 0; 
 
 	/*TODO: use another function (in core.c) for this  */
-	printk("set execd being hit 2\n");
+	printk("set execd being hit 4\n");
 	p->execd_friendly = value;
 	if (p->hash_entry == NULL) {
 		printk("exedcd field is not set \n");
@@ -385,7 +388,7 @@ SYSCALL_DEFINE3(setexecdrafting, int, which, int, who, int, value)
 		else
 			p = current;
 		if (p)
-			error = set_one_prio(p, value, error);
+			error = set_one_execd(p, value, error);
 		break;
 	case PRIO_PGRP:
 		if (who)

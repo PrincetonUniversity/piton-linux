@@ -15,6 +15,9 @@
 #include <linux/types.h>
 #include <crypto/hash.h>
 #include <crypto/md5.h>
+#include <linux/module.h> 
+#include <asm/uaccess.h> 
+#include <linux/mm.h> 
 
 struct hash_table_entry hash_table[NUMBER_OF_BUCKETS];
 
@@ -28,21 +31,29 @@ void init_hash_table_entrries(void) {
 	}
 }
 
-int calculate_hash(char *file) {
+int calculate_hash(struct task_struct *p) {
 
-/* 	Elf32_Ehdr ehdr; 
+	Elf32_Ehdr ehdr; 
  	Elf32_Shdr *sectionHeader;
  	uint64_t i, sectionSize, sectionOffset;
- 	loff_t position = 0; */
- 	/*char *buffer; 
+ 	loff_t position; 
+ 	char *buffer; 
+ 	struct filename *file;
 	struct shash_desc desc;
-	char buffer[sizeof(Elf32_Ehdr)]; */
+	char buffer[sizeof(Elf32_Ehdr)]; 
+	mm_segment_t oldfs;
 
- 	
- 	/* read the header 
+ 	/* read the header */
+ 	if (p == NULL) return -1;
+ 	if (p->program_filename == NULL) return -1;
  	position = 0;
- 	if (file == NULL) return -1; */
- 	/*vfs_read(file, (char *)&buffer, sizeof(Elf32_Ehdr), &position); */
+ 	oldfs = get_fs();
+ 	set_fs(get_ds());
+ 	file = flip_open(p->program_filename->name, O_RDONLY, 0); 
+ 	vfs_read(file, (char *)&buffer, sizeof(Elf32_Ehdr), &position);
+
+ 	flip_close(file, NULL);
+ 	set_fs(oldfs);
 
 	/* get the section headers *
 	position = ehdr.e_shoff;
