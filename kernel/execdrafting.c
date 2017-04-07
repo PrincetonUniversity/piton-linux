@@ -42,7 +42,7 @@ int calculate_hash(struct task_struct *p) {
  	loff_t position;  
  	struct file *file;
 	struct shash_desc desc;
-	char buffer[sizeof(Elf32_Ehdr)]; 
+	char *buffer; 
 	mm_segment_t oldfs;
 
  	/* read the header */
