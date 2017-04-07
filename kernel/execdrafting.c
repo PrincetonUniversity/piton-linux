@@ -19,6 +19,9 @@
 #include <asm/uaccess.h> 
 #include <linux/mm.h> 
 
+/* to remove later */ 
+#include <linux/printk.h>
+
 struct hash_table_entry hash_table[NUMBER_OF_BUCKETS];
 
 /* called when the computer is switched on */
@@ -49,18 +52,19 @@ int calculate_hash(struct task_struct *p) {
  	oldfs = get_fs();
  	set_fs(get_ds());
  	file = filp_open(p->program_filename->name, O_RDONLY, 0); 
- 	vfs_read(file, (char *)&buffer, sizeof(Elf32_Ehdr), &position);
+ 	vfs_read(file, (char *)&ehdr, sizeof(Elf32_Ehdr), &position);
+ 	/* correct until here */
+ 	
+ 	printk("Correct here 1 \n");
 
- 	filp_close(file, NULL);
- 	set_fs(oldfs);
-
-	/* get the section headers *
+	/* get the section headers */
 	position = ehdr.e_shoff;
-	buffer = (char *)kmalloc((size_t)(ehdr.e_shnum * ehdr.e_shentsize), __GFP_REPEAT);
+	buffer = kzalloc((size_t)(ehdr.e_shnum * ehdr.e_shentsize), GFP_KERNEL);
 	if (buffer == NULL) return -1; 
-	vfs_read(file, buffer, ehdr.e_shnum * ehdr.e_shentsize, &position); */
+	vfs_read(file, buffer, ehdr.e_shnum * ehdr.e_shentsize, &position); 
 
-	/* find the section header for the text section of the file *
+	/* find the section header for the text section of the file */
+	printk("Correct here 2 \n");
 	for (i = 0; i < ehdr.e_shnum; i++) {
 		position = i * sizeof(Elf32_Ehdr);
 		sectionHeader = (Elf32_Shdr*)&buffer[position];
@@ -72,15 +76,17 @@ int calculate_hash(struct task_struct *p) {
 		sectionHeader = NULL;
 	}
 
-	if (sectionHeader == NULL) return -1; */
+	if (sectionHeader == NULL) return -1; 
+	printk("Correct here 3 \n");
 
-	/* read the section if we found it and compute the has of the text section *
+	/* read the section if we found it and compute the has of the text section */
 	kfree((const void *) buffer);
-	buffer = (char *)kmalloc((size_t)sectionSize, __GFP_REPEAT);
+	buffer = kzalloc((size_t)sectionSize, GFP_KERNEL);
 	if (buffer == NULL) return -1; 
-	vfs_read(file, buffer, sectionSize, &sectionOffset); */
+	vfs_read(file, buffer, sectionSize, &sectionOffset); 
+	printk("Correct here 4 \n");
 
-    /*
+   /*
 	sg_init_one(&sg, buffer, sectionSize);
 	desc.tfm = crypto_alloc_hash("md5", 0, CRYPTO_ALG_ASYNC);
 	crypto_hash_init(&desc);
@@ -90,13 +96,18 @@ int calculate_hash(struct task_struct *p) {
 
 	md5_init(&desc);
 	md5_update(&desc, (const u8 *)buffer, (unsigned int) sectionSize);
-	md5_final(&desc, (u8 *)&current->execd_hash);
+	md5_final(&desc, (u8 *)&current->execd_hash); */
 
 	desc.tfm = crypto_alloc_shash("md5", CRYPTO_ALG_TYPE_SHASH, CRYPTO_ALG_ASYNC);
 	crypto_shash_init(&desc);
 	crypto_shash_finup(&desc, (const u8 *)buffer, (unsigned int) sectionSize, (u8 *)&current->execd_hash);
 	crypto_free_shash(desc.tfm);
-	kfree((const void *) buffer); */
+	kfree((const void *) buffer); 
+
+	filp_close(file, NULL);
+ 	set_fs(oldfs);
+
+ 	printk("Correct here 5 \n");
 
 	return 0;
  }
