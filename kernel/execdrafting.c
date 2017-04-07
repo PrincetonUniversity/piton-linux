@@ -54,15 +54,15 @@ int calculate_hash(struct task_struct *p) {
  	printk("Correct here -2 \n");
  	set_fs(get_ds());
  	printk("Correct here -1 \n");
- 	file = filp_open(p->program_filename->name, O_RDONLY, 0); 
+ 	file = filp_open(p->program_filename->name, O_RDONLY, FMODE_READ); 
  	ehdr = kzalloc((size_t)sizeof(Elf32_Ehdr), GFP_KERNEL);
 
  	if ((ehdr == NULL) || (file == NULL)) return -1;
  	printk("Correct here 0 \n");
  	printk("\n");
  	printk(file->f_mode);
- 	/*vfs_read(file, (char *)ehdr, sizeof(Elf32_Ehdr), &position);
- 	* correct until here */
+ 	vfs_read(file, (char *)ehdr, sizeof(Elf32_Ehdr), &position);
+ 	/* correct until here */
  	
  	printk("Correct here 1 \n");
 
