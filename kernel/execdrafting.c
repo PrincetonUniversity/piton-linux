@@ -60,9 +60,10 @@ int calculate_hash(struct task_struct *p) {
  	if ((ehdr == NULL) || (file == NULL)) return -1;
  	printk("Correct here 0 \n");
  	printk("\n");
- 	printk(file->f_mode);
- 	vfs_read(file, (char *)ehdr, sizeof(Elf32_Ehdr), &position);
- 	/* correct until here */
+ 	printk("the mode %d\n", (int)file->f_mode);
+ 	printk("\n");
+ 	/*vfs_read(file, (char *)ehdr, sizeof(Elf32_Ehdr), &position);
+ 	* correct until here */
  	
  	printk("Correct here 1 \n");
 
