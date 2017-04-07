@@ -49,9 +49,13 @@ int calculate_hash(struct task_struct *p) {
  	if (p == NULL) return -1;
  	if (p->program_filename == NULL) return -1;
  	position = 0;
+ 	printk("Correct here -3 \n");
  	oldfs = get_fs();
+ 	printk("Correct here -2 \n");
  	set_fs(get_ds());
+ 	printk("Correct here -1 \n");
  	file = filp_open(p->program_filename->name, O_RDONLY, 0); 
+ 	printk("Correct here 0 \n");
  	vfs_read(file, (char *)&ehdr, sizeof(Elf32_Ehdr), &position);
  	/* correct until here */
  	
