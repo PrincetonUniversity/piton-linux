@@ -466,15 +466,12 @@ ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
 
 	if (!(file->f_mode & FMODE_READ))
 		return -EBADF;
-	printk("Not hit 1 \n");
 
 	if (!(file->f_mode & FMODE_CAN_READ))
 		return -EINVAL;
-	printk("Not hit 2 \n");
 
 	if (unlikely(!access_ok(VERIFY_WRITE, buf, count)))
 		return -EFAULT;
-	printk("Not hit 3 \n");
 
 	ret = rw_verify_area(READ, file, pos, count);
 	if (!ret) {
