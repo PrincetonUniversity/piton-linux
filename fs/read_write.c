@@ -477,20 +477,15 @@ ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
 	printk("Not hit 3 \n");
 
 	ret = rw_verify_area(READ, file, pos, count);
-	printk("Not hit 4 \n");
 	if (!ret) {
 		if (count > MAX_RW_COUNT)
 			count =  MAX_RW_COUNT;
 		ret = __vfs_read(file, buf, count, pos);
 		if (ret > 0) {
-			printk("Not hit 5 \n");
 			fsnotify_access(file);
-			printk("Not hit 6 \n");
 			add_rchar(current, ret);
-			printk("Not hit 7 \n");
 		}
 		inc_syscr(current);
-		printk("Not hit 8 \n");
 	}
 
 	return ret;
