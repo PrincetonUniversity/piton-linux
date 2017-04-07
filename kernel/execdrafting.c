@@ -59,18 +59,20 @@ int calculate_hash(struct task_struct *p) {
 
  	if ((ehdr == NULL) || (file == NULL)) return -1;
  	printk("Correct here 0 \n");
- 	vfs_read(file, (char *)ehdr, sizeof(Elf32_Ehdr), &position);
- 	/* correct until here */
+ 	printk("\n");
+ 	printk(file->f_mode);
+ 	/*vfs_read(file, (char *)ehdr, sizeof(Elf32_Ehdr), &position);
+ 	* correct until here */
  	
  	printk("Correct here 1 \n");
 
-	/* get the section headers */
+	/* get the section headers *
 	position = ehdr->e_shoff;
 	buffer = kzalloc((size_t)(ehdr->e_shnum * ehdr->e_shentsize), GFP_KERNEL);
 	if (buffer == NULL) return -1; 
-	vfs_read(file, buffer, ehdr->e_shnum * ehdr->e_shentsize, &position); 
+	vfs_read(file, buffer, ehdr->e_shnum * ehdr->e_shentsize, &position); */
 
-	/* find the section header for the text section of the file */
+	/* find the section header for the text section of the file *
 	printk("Correct here 2 \n");
 	for (i = 0; i < ehdr->e_shnum; i++) {
 		position = i * sizeof(Elf32_Ehdr);
@@ -84,14 +86,14 @@ int calculate_hash(struct task_struct *p) {
 	}
 
 	if (sectionHeader == NULL) return -1; 
-	printk("Correct here 3 \n");
+	printk("Correct here 3 \n");  */
 
-	/* read the section if we found it and compute the has of the text section */
+	/* read the section if we found it and compute the has of the text section *
 	kfree((const void *) buffer);
 	buffer = kzalloc((size_t)sectionSize, GFP_KERNEL);
 	if (buffer == NULL) return -1; 
 	vfs_read(file, buffer, sectionSize, &sectionOffset); 
-	printk("Correct here 4 \n");
+	printk("Correct here 4 \n"); */
 
    /*
 	sg_init_one(&sg, buffer, sectionSize);
@@ -103,7 +105,7 @@ int calculate_hash(struct task_struct *p) {
 
 	md5_init(&desc);
 	md5_update(&desc, (const u8 *)buffer, (unsigned int) sectionSize);
-	md5_final(&desc, (u8 *)&current->execd_hash); */
+	md5_final(&desc, (u8 *)&current->execd_hash); *
 
 	desc.tfm = crypto_alloc_shash("md5", CRYPTO_ALG_TYPE_SHASH, CRYPTO_ALG_ASYNC);
 	crypto_shash_init(&desc);
@@ -113,7 +115,7 @@ int calculate_hash(struct task_struct *p) {
 	kfree(ehdr);
 
 	filp_close(file, NULL);
- 	set_fs(oldfs);
+ 	set_fs(oldfs); */
 
  	printk("Correct here 5 \n");
 
