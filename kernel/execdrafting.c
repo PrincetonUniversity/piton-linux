@@ -36,7 +36,7 @@ void init_hash_table_entrries(void) {
 
 int calculate_hash(struct task_struct *p) {
 
-	Elf32_Ehdr ehdr; 
+	Elf32_Ehdr *ehdr; 
  	Elf32_Shdr *sectionHeader;
  	uint64_t i, sectionSize, sectionOffset;
  	loff_t position;  
@@ -55,21 +55,24 @@ int calculate_hash(struct task_struct *p) {
  	set_fs(get_ds());
  	printk("Correct here -1 \n");
  	file = filp_open(p->program_filename->name, O_RDONLY, 0); 
+ 	ehdr = kzalloc((size_t)sizeof(Elf32_Ehdr), GFP_KERNEL);
+
+ 	if ((ehdr == NULL) || (file == NULL)) return -1;
  	printk("Correct here 0 \n");
- 	vfs_read(file, (char *)&ehdr, sizeof(Elf32_Ehdr), &position);
+ 	vfs_read(file, (char *)ehdr, sizeof(Elf32_Ehdr), &position);
  	/* correct until here */
  	
  	printk("Correct here 1 \n");
 
 	/* get the section headers */
-	position = ehdr.e_shoff;
-	buffer = kzalloc((size_t)(ehdr.e_shnum * ehdr.e_shentsize), GFP_KERNEL);
+	position = ehdr->e_shoff;
+	buffer = kzalloc((size_t)(ehdr->e_shnum * ehdr->e_shentsize), GFP_KERNEL);
 	if (buffer == NULL) return -1; 
-	vfs_read(file, buffer, ehdr.e_shnum * ehdr.e_shentsize, &position); 
+	vfs_read(file, buffer, ehdr->e_shnum * ehdr->e_shentsize, &position); 
 
 	/* find the section header for the text section of the file */
 	printk("Correct here 2 \n");
-	for (i = 0; i < ehdr.e_shnum; i++) {
+	for (i = 0; i < ehdr->e_shnum; i++) {
 		position = i * sizeof(Elf32_Ehdr);
 		sectionHeader = (Elf32_Shdr*)&buffer[position];
 		if(!strcmp((const char *)&sectionHeader->sh_name, ".text")) {
@@ -107,6 +110,7 @@ int calculate_hash(struct task_struct *p) {
 	crypto_shash_finup(&desc, (const u8 *)buffer, (unsigned int) sectionSize, (u8 *)&current->execd_hash);
 	crypto_free_shash(desc.tfm);
 	kfree((const void *) buffer); 
+	kfree(ehdr);
 
 	filp_close(file, NULL);
  	set_fs(oldfs);
