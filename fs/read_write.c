@@ -23,6 +23,9 @@
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
 
+/* to remove later */ 
+#include <linux/printk.h>
+
 typedef ssize_t (*io_fn_t)(struct file *, char __user *, size_t, loff_t *);
 typedef ssize_t (*iter_fn_t)(struct kiocb *, struct iov_iter *);
 
@@ -463,21 +466,31 @@ ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
 
 	if (!(file->f_mode & FMODE_READ))
 		return -EBADF;
+	printk("Not hit 1 \n");
+
 	if (!(file->f_mode & FMODE_CAN_READ))
 		return -EINVAL;
+	printk("Not hit 2 \n");
+
 	if (unlikely(!access_ok(VERIFY_WRITE, buf, count)))
 		return -EFAULT;
+	printk("Not hit 3 \n");
 
 	ret = rw_verify_area(READ, file, pos, count);
+	printk("Not hit 4 \n");
 	if (!ret) {
 		if (count > MAX_RW_COUNT)
 			count =  MAX_RW_COUNT;
 		ret = __vfs_read(file, buf, count, pos);
 		if (ret > 0) {
+			printk("Not hit 5 \n");
 			fsnotify_access(file);
+			printk("Not hit 6 \n");
 			add_rchar(current, ret);
+			printk("Not hit 7 \n");
 		}
 		inc_syscr(current);
+		printk("Not hit 8 \n");
 	}
 
 	return ret;

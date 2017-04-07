@@ -54,7 +54,8 @@ int calculate_hash(struct task_struct *p) {
  	printk("Correct here -2 \n");
  	set_fs(get_ds());
  	printk("Correct here -1 \n");
- 	file = filp_open(p->program_filename->name, O_RDONLY, FMODE_READ); 
+ 	/*file = filp_open(p->program_filename->name, O_RDONLY, FMODE_READ); */
+ 	file = file_open_name(p->program_filename, O_RDONLY, FMODE_READ);
  	ehdr = kzalloc((size_t)sizeof(Elf32_Ehdr), GFP_KERNEL);
 
  	if ((ehdr == NULL) || (file == NULL)) return -1;
@@ -62,8 +63,8 @@ int calculate_hash(struct task_struct *p) {
  	printk("\n");
  	printk("the mode %d\n", (int)file->f_mode);
  	printk("\n");
- 	/*vfs_read(file, (char *)ehdr, sizeof(Elf32_Ehdr), &position);
- 	* correct until here */
+ 	vfs_read(file, (void __user *) ehdr, sizeof(Elf32_Ehdr), &position);
+ 	/* correct until here */
  	
  	printk("Correct here 1 \n");
 
