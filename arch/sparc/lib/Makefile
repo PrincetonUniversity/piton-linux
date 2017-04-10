@@ -23,7 +23,6 @@ lib-$(CONFIG_SPARC64) += mitts_write_config.o
 lib-$(CONFIG_SPARC64) += bitops.o
 lib-$(CONFIG_SPARC64) += execd_config.o
 
-
 lib-$(CONFIG_SPARC64) += U1memcpy.o U1copy_from_user.o U1copy_to_user.o
 
 lib-$(CONFIG_SPARC64) += U3memcpy.o U3copy_from_user.o U3copy_to_user.o
