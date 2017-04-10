@@ -19,6 +19,11 @@
 #include <asm/uaccess.h> 
 #include <linux/mm.h> 
 
+#include <linux/init.h> 
+#include <linux/syscalls.h> 
+#include <linux/fcntl.h> 
+
+
 /* to remove later */ 
 #include <linux/printk.h>
 
@@ -52,9 +57,11 @@ int calculate_hash(struct task_struct *p) {
  	printk("Correct here -3 \n");
  	oldfs = get_fs();
  	printk("Correct here -2 \n");
- 	set_fs(get_ds());
+ 	set_fs(KERNEL_DS);
  	printk("Correct here -1 \n");
  	/*file = filp_open(p->program_filename->name, O_RDONLY, FMODE_READ); */
+ 	file = NULL;
+ 	ehdr = NULL;
  	file = file_open_name(p->program_filename, O_RDONLY, FMODE_READ);
  	ehdr = kzalloc((size_t)sizeof(Elf32_Ehdr), GFP_KERNEL);
 

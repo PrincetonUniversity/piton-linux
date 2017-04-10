@@ -8,7 +8,6 @@ lib-$(CONFIG_SPARC32) += ashrdi3.o
 lib-$(CONFIG_SPARC32) += memcpy.o memset.o
 lib-y                 += strlen.o
 lib-y                 += checksum_$(BITS).o
-lib-y                 += execd_config.o
 lib-$(CONFIG_SPARC32) += blockops.o
 lib-y                 += memscan_$(BITS).o memcmp.o strncmp_$(BITS).o
 lib-$(CONFIG_SPARC32) += divdi3.o udivdi3.o
@@ -22,6 +21,7 @@ lib-$(CONFIG_SPARC64) += csum_copy.o csum_copy_from_user.o csum_copy_to_user.o
 lib-$(CONFIG_SPARC64) += VISsave.o
 lib-$(CONFIG_SPARC64) += mitts_write_config.o
 lib-$(CONFIG_SPARC64) += bitops.o
+lib-$(CONFIG_SPARC64) += execd_config.o
 
 lib-$(CONFIG_SPARC64) += U1memcpy.o U1copy_from_user.o U1copy_to_user.o
 
@@ -46,3 +46,9 @@ lib-$(CONFIG_SPARC64) += mcount.o ipcsum.o xor.o hweight.o ffs.o
 obj-$(CONFIG_SPARC64) += iomap.o
 obj-$(CONFIG_SPARC32) += atomic32.o ucmpdi2.o
 obj-$(CONFIG_SPARC64) += PeeCeeI.o
+
+
+
+
+
+
