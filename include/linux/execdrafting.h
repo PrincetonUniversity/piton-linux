@@ -28,6 +28,9 @@ struct hash_table_roots {
 /* the hash table; probably need to initialize this when the computer gets started */
 extern struct hash_table_entry hash_table[NUMBER_OF_BUCKETS];
 
+int enable_execd(void);
+int disable_execd(void);
+
 void init_hash_table_entrries(void);
 int calculate_hash(struct task_struct *p);
 int add_tohash_table(struct task_struct *p);

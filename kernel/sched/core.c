@@ -75,6 +75,7 @@
 #include <linux/compiler.h>
 #include <linux/frame.h>
 #include <linux/prefetch.h>
+#include <linux/execdrafting.h>
 
 #include <asm/switch_to.h>
 #include <asm/tlb.h>
@@ -770,8 +771,12 @@ static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
 		sched_info_dequeued(rq, p);
 	p->sched_class->dequeue_task(rq, p, flags);
 
-	/* remove hash from the table */
+	/* remove hash from the table and enable execd if is it not enable and should be*/
 	delete_hash_entry(p);
+	if (p->execd_friendly)
+		enable_execd();		
+	else 
+		disable_execd();
 }
 
 void activate_task(struct rq *rq, struct task_struct *p, int flags)

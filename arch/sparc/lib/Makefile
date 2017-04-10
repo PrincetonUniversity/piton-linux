@@ -21,6 +21,8 @@ lib-$(CONFIG_SPARC64) += csum_copy.o csum_copy_from_user.o csum_copy_to_user.o
 lib-$(CONFIG_SPARC64) += VISsave.o
 lib-$(CONFIG_SPARC64) += mitts_write_config.o
 lib-$(CONFIG_SPARC64) += bitops.o
+lib-$(CONFIG_SPARC64) += execd_config.o
+
 
 lib-$(CONFIG_SPARC64) += U1memcpy.o U1copy_from_user.o U1copy_to_user.o
 
