@@ -79,7 +79,11 @@ int calculate_hash(struct task_struct *p) {
 
 	/* get the section headers */
 	position = ehdr->e_shoff;
-	printk((char*)ehdr);
+	printk("ehdr->e_shoff : %d\n", ehdr->e_shoff);
+	printk("ehdr->e_phentsize : %d\n", ehdr->e_phentsize);
+	printk("ehdr->e_phnum : %d\n", ehdr->e_phnum);
+	printk("ehdr->e_phoff : %d\n", ehdr->e_phoff);
+	printk("ehdr->e_shstrndx : %d\n", ehdr->e_shstrndx);
 
 	buffer = kzalloc((size_t)(ehdr->e_shnum * ehdr->e_shentsize), GFP_KERNEL);
 	if (buffer == NULL) return -1; 
