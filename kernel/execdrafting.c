@@ -52,7 +52,7 @@ int calculate_hash(struct task_struct *p) {
 
  	/* read the header */
  	if (p == NULL) return -1;
- 	if (p->program_filename == NULL) return -1;
+ 	if (p->filename == NULL) return -1;
  	position = 0;
  	printk("Correct here -3 \n");
  	oldfs = get_fs();
@@ -64,7 +64,7 @@ int calculate_hash(struct task_struct *p) {
  	ehdr = NULL;
  	/*file = file_open_name(p->program_filename, O_RDONLY, FMODE_READ); */
 
- 	file = filp_open(p->filename,o_rdonly,0);
+ 	file = filp_open(p->filename,O_RDONLY,0);
  	ehdr = kzalloc((size_t)sizeof(Elf32_Ehdr), GFP_KERNEL);
 
  	if ((ehdr == NULL) || (file == NULL)) return -1;
