@@ -773,10 +773,10 @@ static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
 
 	/* remove hash from the table and enable execd if is it not enable and should be*/
 	delete_hash_entry(p);
-	if (p->execd_friendly)
+	/*if (p->execd_friendly)
 		enable_execd();		
 	else 
-		disable_execd();
+		disable_execd();*/
 }
 
 void activate_task(struct rq *rq, struct task_struct *p, int flags)

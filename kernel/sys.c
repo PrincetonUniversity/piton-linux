@@ -347,7 +347,7 @@ static int set_one_execd(struct task_struct *p, int value, int error)
 	/*TODO: use another function (in core.c) for this  */
 	printk("set execd being hit 4\n");
 	p->execd_friendly = value;
-	enable_execd();
+	/*enable_execd();*/
 	if (p->hash_entry == NULL) {
 		printk("exedcd field is not set \n");
 		if (calculate_hash(p) != 0)
