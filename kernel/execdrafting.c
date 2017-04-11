@@ -79,13 +79,13 @@ int calculate_hash(struct task_struct *p) {
 
 	/* get the section headers */
 	position = ehdr->e_shoff;
-	printk("Correct positon 2: %d\n", position);
-	
+	printk((char*)ehdr);
+
 	buffer = kzalloc((size_t)(ehdr->e_shnum * ehdr->e_shentsize), GFP_KERNEL);
 	if (buffer == NULL) return -1; 
 	vfs_read(file, buffer, ehdr->e_shnum * ehdr->e_shentsize, &position); 
 
-	/* find the section header for the text section of the file *
+	/* find the section header for the text section of the file */
 	printk("Correct here 2 \n");
 	for (i = 0; i < ehdr->e_shnum; i++) {
 		position = i * sizeof(Elf32_Ehdr);
@@ -93,13 +93,14 @@ int calculate_hash(struct task_struct *p) {
 		if(!strcmp((const char *)&sectionHeader->sh_name, ".text")) {
 			sectionOffset = sectionHeader->sh_offset;
 			sectionSize = sectionHeader->sh_size;
+			printk("Found it \n");
 			break;
 		}
 		sectionHeader = NULL;
 	}
 
 	if (sectionHeader == NULL) return -1; 
-	printk("Correct here 3 \n");  */
+	printk("Correct here 3 \n");  
 
 	/* read the section if we found it and compute the has of the text section *
 	kfree((const void *) buffer);
