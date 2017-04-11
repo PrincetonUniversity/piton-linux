@@ -72,16 +72,18 @@ int calculate_hash(struct task_struct *p) {
  	printk("\n");
  	printk("the mode %d\n", (int)file->f_mode);
  	printk("\n");
- 	vfs_read(file, (void __user *) ehdr, sizeof(Elf32_Ehdr), &position); 
- 	/* correct until here */
- 	
+ 	vfs_read(file, (void __user *) ehdr, sizeof(Elf32_Ehdr), &position);  	
  	printk("Correct here 1 \n");
 
-	/* get the section headers *
+ 	printk("Correct positon 1: %d\n", position);
+
+	/* get the section headers */
 	position = ehdr->e_shoff;
+	printk("Correct positon 2: %d\n", position);
+	
 	buffer = kzalloc((size_t)(ehdr->e_shnum * ehdr->e_shentsize), GFP_KERNEL);
 	if (buffer == NULL) return -1; 
-	vfs_read(file, buffer, ehdr->e_shnum * ehdr->e_shentsize, &position); */
+	vfs_read(file, buffer, ehdr->e_shnum * ehdr->e_shentsize, &position); 
 
 	/* find the section header for the text section of the file *
 	printk("Correct here 2 \n");
