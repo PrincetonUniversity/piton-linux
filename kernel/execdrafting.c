@@ -73,7 +73,7 @@ int calculate_hash(struct task_struct *p) {
  	printk("\n");
  	printk("the mode %d\n", (int)file->f_mode);
  	printk("\n");
- 	file->f_op->read(file, ehdr, sizeof(Elf32_Ehdr), &position);  	
+ 	file->f_op->read(file, (char *)ehdr, sizeof(Elf32_Ehdr), &position);  	
  	printk("Correct here 1 \n");
 
  	printk("Correct positon 1: %d\n", position);
@@ -101,14 +101,14 @@ int calculate_hash(struct task_struct *p) {
 	if (buffer == NULL) return -1; 
 	/*vfs_read(file, buffer, ehdr->e_shnum * ehdr->e_shentsize, &position);*/
 
-	file->f_op->read(file, buffer, ehdr->e_shnum * ehdr->e_shentsize, &position);
+	file->f_op->read(file, (char *)buffer, ehdr->e_shnum * ehdr->e_shentsize, &position);
 
 	printk("Correct positon 2: %d\n", position);
 
 	position = ehdr->e_phoff;
 	phdr = kzalloc((size_t)sizeof(Elf32_Phdr), GFP_KERNEL);
 	if (phdr == NULL) return -1;
-	file->f_op->read(file, phdr, sizeof(Elf32_Phdr) , &position); 
+	file->f_op->read(file, (char *)phdr, sizeof(Elf32_Phdr) , &position); 
 	printk("phdr->p_offset : %d\n", phdr->p_offset);
 	printk("phdr->p_filesz : %d\n", phdr->p_filesz);
 	printk("Correct positon 3: %d\n", position);
