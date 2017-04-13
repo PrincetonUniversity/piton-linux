@@ -349,7 +349,7 @@ static int set_one_execd(struct task_struct *p, int value, int error)
 	p->execd_friendly = value;
 
 	if (value) {
-		/*enable_execd();*/
+		enable_execd();
 		if (p->hash_entry == NULL) {
 		printk("execd enabled \n");
 		/*if (calculate_hash(p) != 0)
@@ -358,7 +358,7 @@ static int set_one_execd(struct task_struct *p, int value, int error)
 	}
 
 	else {
-		/*disable_execd(); */
+		disable_execd();
 		printk("execd disabled \n");
 	}
 	
