@@ -351,14 +351,15 @@ static int set_one_execd(struct task_struct *p, int value, int error)
 	if (value) {
 		enable_execd();
 		if (p->hash_entry == NULL) {
-		printk("exedcd field is not set \n");
-		if (calculate_hash(p) != 0)
+		printk("execd enabled \n");
+		/*if (calculate_hash(p) != 0)
 			return -1;
-		}
+		} */
 	}
 
 	else {
 		disable_execd();
+		printk("execd disabled \n");
 	}
 	
 	
