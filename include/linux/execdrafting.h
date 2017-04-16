@@ -30,6 +30,7 @@ extern struct hash_table_entry hash_table[NUMBER_OF_BUCKETS];
 
 int enable_execd(void);
 int disable_execd(void);
+int check_execd_register(void);
 
 void init_hash_table_entrries(void);
 int calculate_hash(struct task_struct *p);

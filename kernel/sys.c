@@ -349,16 +349,21 @@ static int set_one_execd(struct task_struct *p, int value, int error)
 	p->execd_friendly = value;
 
 	if (value) {
+		printk("Execd register value before enable_call %d\n", check_execd_register());
 		enable_execd();
+		printk("Execd register value after enable_call %d\n", check_execd_register());
+
 		if (p->hash_entry == NULL) {
 		printk("execd enabled \n");
 		/*if (calculate_hash(p) != 0)
-			return -1;
-		} */
+			return -1;*/
+		}
 	}
 
 	else {
+		printk("Execd register value before disable_call %d\n", check_execd_register());
 		disable_execd();
+		printk("Execd register value after disable_call %d\n", check_execd_register());
 		printk("execd disabled \n");
 	}
 	
