@@ -29,7 +29,7 @@ disable_execd:
 
 
 .globl  check_execd_register
-disable_execd:
+check_execd_register:
   	mov SUNHV_CPU_CHECK_EXECD_REGISTER, %o5
   	ta  SUNHV_FAST_TRAP
   	mov %o1, %o0
