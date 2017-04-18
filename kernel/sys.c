@@ -358,7 +358,6 @@ static int set_one_execd(struct task_struct *p, int value, int error)
 		*/
 
 		printk("execd enabled \n");
-		return 0;
 
 		/*if (p->hash_entry == NULL) { */
 		
