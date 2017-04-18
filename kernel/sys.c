@@ -374,7 +374,7 @@ static int set_one_execd(struct task_struct *p, int value, int error)
 		printk("Execd register value after disable_call %d\n", check_execd_register());
 		printk("execd disabled \n");
 		*/
-	/*}*/
+	}
 	
 	
 out:
