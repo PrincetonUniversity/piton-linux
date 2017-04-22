@@ -44,7 +44,7 @@ int calculate_hash(struct task_struct *p) {
 	Elf64_Ehdr *ehdr; 
  	Elf64_Shdr *sectionHeader;
  	Elf64_Phdr *phdr;
- 	Elf64_Shdr *sh_strtab
+ 	Elf64_Shdr *sh_strtab;
  	uint64_t i, sectionSize, sectionOffset;
  	loff_t position;  
  	struct file *file;
