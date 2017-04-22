@@ -114,6 +114,7 @@ int calculate_hash(struct task_struct *p) {
 	/* get the section with the names, this is the section with the section headers */
 	sh_strtab = (Elf64_Shdr*)&buffer[(ehdr->e_shstrndx) * sizeof(Elf64_Shdr)];
 	position = sh_strtab->sh_offset;
+	section_names = kzalloc((size_t)(sh_strtab->sh_size), GFP_KERNEL);
 	vfs_read(file, section_names, sh_strtab->sh_size, &position);
 
 
