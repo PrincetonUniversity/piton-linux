@@ -352,14 +352,17 @@ static int set_one_execd(struct task_struct *p, int value, int error)
 		/*
 		printk("Execd register value before enable_call %d\n", check_execd_register());
 		*/
-		enable_execd();
+		/*enable_execd();*/
 		/*
 		printk("Execd register value after enable_call %d\n", check_execd_register()); 
 		*/
 
-		printk("execd enabled \n");
+		
 
 		/*if (p->hash_entry == NULL) { */
+
+		calculate_hash(p);
+		printk("execd enabled \n");
 		
 		/*if (calculate_hash(p) != 0)
 			return -1;*/

@@ -41,45 +41,38 @@ void init_hash_table_entrries(void) {
 
 int calculate_hash(struct task_struct *p) {
 
-	Elf32_Ehdr *ehdr; 
- 	Elf32_Shdr *sectionHeader;
+	Elf64_Ehdr *ehdr; 
+ 	Elf64_Shdr *sectionHeader;
+ 	Elf64_Phdr *phdr;
  	uint64_t i, sectionSize, sectionOffset;
  	loff_t position;  
  	struct file *file;
 	struct shash_desc desc;
 	char *buffer; 
 	mm_segment_t oldfs;
-	Elf32_Phdr *phdr;
+	
 
  	/* read the header */
  	if (p == NULL) return -1;
  	if (p->filename == NULL) return -1;
  	position = 0;
- 	printk("Correct here -3 \n");
  	oldfs = get_fs();
- 	printk("Correct here -2 \n");
  	set_fs(KERNEL_DS);
- 	printk("Correct here -1 \n");
  	/*file = filp_open(p->program_filename->name, O_RDONLY, FMODE_READ); */
  	file = NULL;
  	ehdr = NULL;
  	/*file = file_open_name(p->program_filename, O_RDONLY, FMODE_READ); */
 
  	file = filp_open(p->filename,O_RDONLY,0);
- 	ehdr = kzalloc((size_t)sizeof(Elf32_Ehdr), GFP_KERNEL);
+ 	ehdr = kzalloc((size_t)sizeof(Elf64_Ehdr), GFP_KERNEL);
 
  	if ((ehdr == NULL) || (file == NULL)) return -1;
- 	printk("Correct here 0 \n");
- 	printk("\n");
- 	printk("the mode %d\n", (int)file->f_mode);
- 	printk("\n");
- 	vfs_read(file, (char *) ehdr, sizeof(Elf32_Ehdr), &position);  	
- 	printk("Correct here 1 \n");
+ 	vfs_read(file, (char *) ehdr, sizeof(Elf64_Ehdr), &position);  	
 
  	printk("Correct positon 1: %d\n", position);
 
 	/* get the section headers */
-	printk("sizeof(Elf32_Ehdr) : %d\n", (int)sizeof(Elf32_Ehdr));
+	printk("sizeof(Elf64_Ehdr) : %d\n", (int)sizeof(Elf64_Ehdr));
 	printk("ehdr->e_shoff : %d\n", ehdr->e_shoff);
 	printk("ehdr->e_phentsize : %d\n", ehdr->e_phentsize);
 	printk("ehdr->e_phnum : %d\n", ehdr->e_phnum);
@@ -92,8 +85,8 @@ int calculate_hash(struct task_struct *p) {
 	Print the offset of the section header table because it seems like we do not have a program header
 	*/
 
-	position = vfs_llseek(file, 0, SEEK_END);
-	printk("After vfs_llseek: %d\n", position);
+	/*position = vfs_llseek(file, 0, SEEK_END);
+	printk("After vfs_llseek: %d\n", position); */
 
 	
 	position = ehdr->e_shoff;
@@ -105,21 +98,21 @@ int calculate_hash(struct task_struct *p) {
 
 	printk("Correct positon 2: %d\n", position);
 
-	position = ehdr->e_phoff;
-	phdr = kzalloc((size_t)sizeof(Elf32_Phdr), GFP_KERNEL);
+	/*position = ehdr->e_phoff;
+	phdr = kzalloc((size_t)sizeof(Elf64_Phdr), GFP_KERNEL);
 	if (phdr == NULL) return -1;
-	vfs_read(file, (char *)phdr, sizeof(Elf32_Phdr) , &position); 
+	vfs_read(file, (char *)phdr, sizeof(Elf64_Phdr) , &position); 
 	printk("phdr->p_offset : %d\n", phdr->p_offset);
 	printk("phdr->p_filesz : %d\n", phdr->p_filesz);
-	printk("Correct positon 3: %d\n", position);
+	printk("Correct positon 3: %d\n", position);*/
 
 	/*vfs_llseek(struct file *file, loff_t offset, int whence); */
 
 	/* find the section header for the text section of the file */
 	printk("Correct here 2 \n");
 	for (i = 0; i < ehdr->e_shnum; i++) {
-		position = i * sizeof(Elf32_Shdr);
-		sectionHeader = (Elf32_Shdr*)&buffer[position];
+		position = i * sizeof(Elf64_Shdr);
+		sectionHeader = (Elf64_Shdr*)&buffer[position];
 		if(!strcmp((const char *)&sectionHeader->sh_name, ".text")) {
 			sectionOffset = sectionHeader->sh_offset;
 			sectionSize = sectionHeader->sh_size;
