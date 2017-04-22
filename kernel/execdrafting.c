@@ -49,7 +49,8 @@ int calculate_hash(struct task_struct *p) {
  	loff_t position;  
  	struct file *file;
 	struct shash_desc desc;
-	char *buffer, section_names; 
+	char *buffer;
+	char *section_names; 
 	mm_segment_t oldfs;
 	
 
