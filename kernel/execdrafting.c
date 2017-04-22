@@ -44,11 +44,12 @@ int calculate_hash(struct task_struct *p) {
 	Elf64_Ehdr *ehdr; 
  	Elf64_Shdr *sectionHeader;
  	Elf64_Phdr *phdr;
+ 	Elf64_Shdr *sh_strtab
  	uint64_t i, sectionSize, sectionOffset;
  	loff_t position;  
  	struct file *file;
 	struct shash_desc desc;
-	char *buffer; 
+	char *buffer, section_names; 
 	mm_segment_t oldfs;
 	
 
@@ -109,21 +110,28 @@ int calculate_hash(struct task_struct *p) {
 	/*vfs_llseek(struct file *file, loff_t offset, int whence); */
 
 	/* find the section header for the text section of the file */
+	/* get the section with the names, this is the section with the section headers */
+	sh_strtab = (Elf64_Shdr*)&buffer[(ehdr->e_shstrndx) * sizeof(Elf64_Shdr)];
+	position = sh_strtab->sh_offset;
+	vfs_read(file, section_names, sh_strtab->sh_size, &position);
+
+
 	printk("Correct here 2 \n");
 	for (i = 0; i < ehdr->e_shnum; i++) {
+
 		position = i * sizeof(Elf64_Shdr);
 		sectionHeader = (Elf64_Shdr*)&buffer[position];
-		printk((const char *)&sectionHeader->sh_name);
 
-		printk("\n");
+		printk("%2d: %4d '%s'\n", i, sectionHeader->sh_name, section_names[sectionHeader->sh_name]);
 
-		if(!strcmp((const char *)&sectionHeader->sh_name, ".text")) {
+		if(!strcmp((const char *)&section_names[sectionHeader->sh_name], ".text")) {
 			sectionOffset = sectionHeader->sh_offset;
 			sectionSize = sectionHeader->sh_size;
 			printk("Found it \n");
 			break;
 		}
-		sectionHeader = NULL;
+		sectionHeader = NULL; 
+
 	}
 
 	if (sectionHeader == NULL) return -1; 
