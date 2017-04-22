@@ -113,6 +113,10 @@ int calculate_hash(struct task_struct *p) {
 	for (i = 0; i < ehdr->e_shnum; i++) {
 		position = i * sizeof(Elf64_Shdr);
 		sectionHeader = (Elf64_Shdr*)&buffer[position];
+		printk((const char *)&sectionHeader->sh_name);
+
+		printk("\n");
+
 		if(!strcmp((const char *)&sectionHeader->sh_name, ".text")) {
 			sectionOffset = sectionHeader->sh_offset;
 			sectionSize = sectionHeader->sh_size;
