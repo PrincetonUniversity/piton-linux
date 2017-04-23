@@ -132,7 +132,7 @@ int get_hash_bucket(struct task_struct *p) {
  process' hash value */
 int add_tohash_table(struct task_struct *p) {
  	
-  /*
+ 
  	int hash_int;
  	struct hash_table_entry *new_entry;
  	if (p == NULL) return -1;
@@ -150,15 +150,17 @@ int add_tohash_table(struct task_struct *p) {
 
  	printk("add_tohash_table 3 \n");
 
+ 	if (hash_table == NULL) return -1;
+
+ 	/*
  	hash_table[hash_int].next->prev = new_entry;
  	new_entry->current_task =  p;
  	new_entry->next = hash_table[hash_int].next;
  	new_entry->prev = &hash_table[hash_int];
  	hash_table[hash_int].next = new_entry;
- 	p->hash_entry = new_entry;
+ 	p->hash_entry = new_entry; */
 
  	printk("add_tohash_table 4 \n");
-*/
  	return 0; 
  }
 
