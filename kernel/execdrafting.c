@@ -123,10 +123,18 @@ int calculate_hash(struct task_struct *p) {
 /* convert the hash to an int and find the bucket for the hash */
 int get_hash_bucket(struct task_struct *p) {
 	 unsigned long res;
+	 int bucket;
 	 kstrtoul((const char *) p->execd_hash, 10 /* base */, &res);
-	return (int) (res / NUMBER_OF_BUCKETS);
-	return 0;
-}
+
+	bucket = res % NUMBER_OF_BUCKETS;
+
+	printk("res %ld \n", res);
+	printk("res %d \n", bucket);
+
+	if (bucket < 0) 
+		bucket *= -1;
+
+	return bucket;
 
 /* this function add the process to the hash table based on the 
  process' hash value */
@@ -141,9 +149,10 @@ int add_tohash_table(struct task_struct *p) {
  	printk("add_tohash_table 1 \n");
 
  	if (p->execd_hash == NULL) return -1;
- 	
+
  	hash_int = get_hash_bucket(p);
 
+ 	if (hash_int < 0) return -1;
 
  	printk("add_tohash_table %d \n", hash_int);
 
@@ -153,14 +162,16 @@ int add_tohash_table(struct task_struct *p) {
  	printk("add_tohash_table 3 \n");
 
  	if (hash_table == NULL) return -1;
+ 	if (hash_table[hash_int] == NULL) return -1;
 
- 	/*
  	hash_table[hash_int].next->prev = new_entry;
+
  	new_entry->current_task =  p;
  	new_entry->next = hash_table[hash_int].next;
  	new_entry->prev = &hash_table[hash_int];
+
  	hash_table[hash_int].next = new_entry;
- 	p->hash_entry = new_entry; */
+ 	p->hash_entry = new_entry; 
 
  	printk("add_tohash_table 4 \n");
  	return 0; 
