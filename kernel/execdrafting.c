@@ -132,7 +132,7 @@ int get_hash_bucket(struct task_struct *p) {
  process' hash value */
 int add_tohash_table(struct task_struct *p) {
  	
-  
+  /*
  	int hash_int;
  	struct hash_table_entry *new_entry;
  	if (p == NULL) return -1;
@@ -158,8 +158,8 @@ int add_tohash_table(struct task_struct *p) {
  	p->hash_entry = new_entry;
 
  	printk("add_tohash_table 4 \n");
-
- 	return 0;
+*/
+ 	return 0; 
  }
 
 /* finds and returns a task that is similar to task referenced by p */
