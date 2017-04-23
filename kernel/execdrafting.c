@@ -163,17 +163,23 @@ int add_tohash_table(struct task_struct *p) {
  	printk("add_tohash_table 3 \n");
 
  	if (hash_table == NULL) return -1;
+ 	printk("add_tohash_table 3 \n");
 
- 	hash_table[hash_int].next->prev = new_entry;
+ 	/* when adding for the first time */
+ 	if (hash_table[hash_int].next != NULL) 
+ 		hash_table[hash_int].next->prev = new_entry;
+ 	printk("add_tohash_table 3 \n");
 
  	new_entry->current_task =  p;
- 	new_entry->next = hash_table[hash_int].next;
- 	new_entry->prev = &hash_table[hash_int];
-
- 	hash_table[hash_int].next = new_entry;
- 	p->hash_entry = new_entry; 
-
  	printk("add_tohash_table 4 \n");
+ 	new_entry->next = hash_table[hash_int].next;
+ 	printk("add_tohash_table 5 \n");
+ 	new_entry->prev = &hash_table[hash_int];
+	printk("add_tohash_table 6 \n");
+ 	hash_table[hash_int].next = new_entry;
+ 	printk("add_tohash_table 7 \n");
+ 	p->hash_entry = new_entry; 
+ 	printk("add_tohash_table 8 \n");
  	return 0; 
  }
 
