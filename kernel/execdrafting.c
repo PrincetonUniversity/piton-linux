@@ -135,6 +135,7 @@ int get_hash_bucket(struct task_struct *p) {
 		bucket *= -1;
 
 	return bucket;
+}
 
 /* this function add the process to the hash table based on the 
  process' hash value */
