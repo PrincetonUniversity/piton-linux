@@ -163,7 +163,6 @@ int add_tohash_table(struct task_struct *p) {
  	printk("add_tohash_table 3 \n");
 
  	if (hash_table == NULL) return -1;
- 	if (hash_table[hash_int] == NULL) return -1;
 
  	hash_table[hash_int].next->prev = new_entry;
 
