@@ -140,6 +140,8 @@ int add_tohash_table(struct task_struct *p) {
 
  	printk("add_tohash_table 1 \n");
 
+ 	if (p->execd_hash == NULL) return -1;
+ 	
  	hash_int = get_hash_bucket(p);
 
 
