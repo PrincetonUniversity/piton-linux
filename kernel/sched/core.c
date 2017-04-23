@@ -761,7 +761,7 @@ static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 	p->sched_class->enqueue_task(rq, p, flags);
 
 	/* add hash to the table */
-	add_tohash_table(p);
+	/*add_tohash_table(p); */
 }
 
 static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
@@ -772,7 +772,7 @@ static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
 	p->sched_class->dequeue_task(rq, p, flags);
 
 	/* remove hash from the table and enable execd if is it not enable and should be*/
-	delete_hash_entry(p);
+	/* delete_hash_entry(p); */
 	/*if (p->execd_friendly)
 		enable_execd();		
 	else 
