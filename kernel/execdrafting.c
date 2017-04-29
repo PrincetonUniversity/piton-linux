@@ -107,37 +107,37 @@ int calculate_hash(struct task_struct *p) {
 		/* get the right pointer for the beginning of the buffer the the size of the data */
 		if (i == 0) {
 			current_hash = (u8 *) &current->execd_hash;
-			data = (const u8 *) buffer;
+			data = (const u8 *) &buffer;
 		}
 		else if (i == 1) {
 			current_hash = (u8 *)&current->execd_half_1_hash;
 			len = sectionSize / 2;
-			data = (const u8 *)buffer[0];
+			data = (const u8 *)&buffer[0];
 		}
 		else if (i == 2) {
 			current_hash = (u8 *)&current->execd_half_2_hash;
 			len = (sectionSize / 2) + (sectionSize % 2);
-			data = (const u8 *) buffer[len];
+			data = (const u8 *) &buffer[len];
 		}
 		else if (i == 3) {
 			current_hash = (u8 *)&current->execd_quarter_1_hash;
 			len = sectionSize / 4;
-			data = (const u8 *) buffer[0];
+			data = (const u8 *) &buffer[0];
 		}
 		else if (i == 4) {
 			current_hash = (u8 *)&current->execd_quarter_2_hash;
 			len = sectionSize / 4;
-			data = (const u8 *) buffer[len];
+			data = (const u8 *) &buffer[len];
 		}
 		else if (i == 5) {
 			current_hash = (u8 *)&current->execd_quarter_3_hash;
 			len = sectionSize / 4;
-			data = (const u8 *) buffer[2 * len];
+			data = (const u8 *) &buffer[2 * len];
 		}
 		else if (i == 6) {
 			current_hash = (u8 *)&current->execd_quarter_4_hash;
 			len = (sectionSize / 2) + (sectionSize % 4);
-			data = (const u8 *) buffer[3 * len];
+			data = (const u8 *) &buffer[3 * len];
 		}
 
 		/* calculate the has and free it to be used by the other calls */
