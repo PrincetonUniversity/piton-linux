@@ -148,7 +148,7 @@ int calculate_hash(struct task_struct *p) {
 	}
 
 	/* initialize the matching score for this process */
-	matching_score = 0;
+	p->matching_score = 0;
 	p->on_list = NOT_ON_LIST;
 	
 	/*free allocations */
@@ -167,7 +167,7 @@ int get_hash_bucket(u8 *hash) {
 
 	/*unsigned long res;
 	int bucket;
-	kstrtoul((const char *) hash, 10 /* base *, &res);
+	kstrtoul((const char *) hash, 10 * base *, &res);
 
 	bucket = res % NUMBER_OF_BUCKETS;
 	if (bucket < 0) 
@@ -189,7 +189,7 @@ int add_tohashes_table(struct task_struct *p) {
  	struct hash_table_entry *new_entry;
  	if (p == NULL) return -1;
 
- 	/*calculate the hash *
+ 	*calculate the hash *
 	for (i = 0; i < 7; i++) {
 
 		if (i == 0) {
@@ -229,7 +229,7 @@ int add_tohashes_table(struct task_struct *p) {
  		if (new_entry == NULL) return -1;
  		if (hash_table == NULL) return -1;
 
- 		/* when adding for the first time *
+ 		* when adding for the first time *
  		if (hash_table[hash_int].next != NULL) 
  			hash_table[hash_int].next->prev = new_entry;
 
