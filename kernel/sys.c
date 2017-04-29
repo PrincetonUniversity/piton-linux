@@ -364,7 +364,7 @@ static int set_one_execd(struct task_struct *p, int value, int error)
 			calculate_hash(p);
 			printk("execd enabled \n");
 
-			printk(p->hash_entry);
+			printk((const char *)&p->hash_entry);
 
 		   /*if (calculate_hash(p) != 0)
 			return -1;*/

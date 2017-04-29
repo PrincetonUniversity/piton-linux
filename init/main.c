@@ -660,7 +660,7 @@ asmlinkage __visible void __init start_kernel(void)
 	ftrace_init();
 
 	/* init execdrafting*/
-	init_hash_table_entrries();
+	init_hash_table_entries();
 
 	/* Do the rest non-__init'ed, we're now alive */
 	rest_init();
