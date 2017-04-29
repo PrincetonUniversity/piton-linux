@@ -39,6 +39,21 @@ void init_hash_table_entries(void) {
 	}
 }
 
+/* convert the hash to an int and find the bucket for the hash */
+int get_hash_bucket(u8 *hash) {
+
+	unsigned long res;
+	int bucket;
+	kstrtoul((const char *) hash, 10 /* base */, &res);
+
+	bucket = res % NUMBER_OF_BUCKETS;
+	if (bucket < 0) 
+		bucket *= -1;
+
+	return bucket; 
+}
+
+
 int calculate_hash(struct task_struct *p) {
 
 	Elf64_Ehdr *ehdr; 
@@ -164,20 +179,6 @@ int calculate_hash(struct task_struct *p) {
  	set_fs(oldfs); 
 	return 0;
  }
-
-/* convert the hash to an int and find the bucket for the hash */
-int get_hash_bucket(u8 *hash) {
-
-	unsigned long res;
-	int bucket;
-	kstrtoul((const char *) hash, 10 /* base */, &res);
-
-	bucket = res % NUMBER_OF_BUCKETS;
-	if (bucket < 0) 
-		bucket *= -1;
-
-	return bucket; 
-}
 
 /* this function add the process to the hash table based on the 
  process' hash value */
