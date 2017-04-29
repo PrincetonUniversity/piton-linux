@@ -1966,7 +1966,7 @@ struct task_struct {
 	u8 execd_quarter_1_hash[32]; 
 	u8 execd_quarter_2_hash[32]; 
 	u8 execd_quarter_3_hash[32]; 
-	u8 execd_quarter_3_hash[32]; 
+	u8 execd_quarter_4_hash[32]; 
 	int matching_score;
 	int on_list;
 	struct task_struct *next_on_similarity_list;
