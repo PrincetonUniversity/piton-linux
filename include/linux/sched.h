@@ -1961,6 +1961,16 @@ struct task_struct {
 	int execd_friendly;
 	char *filename;
 	u8 execd_hash[32]; /* TODO: Make this a constant somewhere */
+	u8 execd_half_1_hash[32]; 
+	u8 execd_half_2_hash[32]; 
+	u8 execd_quarter_1_hash[32]; 
+	u8 execd_quarter_2_hash[32]; 
+	u8 execd_quarter_3_hash[32]; 
+	u8 execd_quarter_3_hash[32]; 
+	int matching_score;
+	int on_list;
+	struct task_struct *next_on_similarity_list;
+
 	struct hash_table_entry *hash_entry;
 
 /* CPU-specific state of this task */

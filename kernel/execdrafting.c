@@ -30,7 +30,7 @@
 struct hash_table_entry hash_table[NUMBER_OF_BUCKETS];
 
 /* called when the computer is switched on */
-void init_hash_table_entrries(void) {
+void init_hash_table_entries(void) {
 	int i;
 	for (i = 0; i < NUMBER_OF_BUCKETS; i++)  {
 		hash_table[i].next = NULL;
@@ -51,7 +51,10 @@ int calculate_hash(struct task_struct *p) {
 	char *buffer;
 	char *section_names; 
 	mm_segment_t oldfs;
-	
+	int i;
+	u8 *current_hash;
+	const u8 * data;
+	unsigned int len;
 
  	/* read the header */
  	if (p == NULL) return -1;
@@ -98,12 +101,56 @@ int calculate_hash(struct task_struct *p) {
 	if (buffer == NULL) return -1; 
 	vfs_read(file, buffer, sectionSize, &position); 
 
-	/*calculate the hash */
-	desc.tfm = crypto_alloc_shash("md5", CRYPTO_ALG_TYPE_SHASH, CRYPTO_ALG_ASYNC);
-	crypto_shash_init(&desc);
-	crypto_shash_finup(&desc, (const u8 *)buffer, (unsigned int) sectionSize, (u8 *)&current->execd_hash);
-	crypto_free_shash(desc.tfm);
+	/*calculate the hashes */
+	for (i = 0; i < 7; i++) {
 
+		/* get the right pointer for the beginning of the buffer the the size of the data */
+		if (i == 0) {
+			current_hash = &current->execd_hash;
+			data = (const u8 *) buffer;
+		}
+		else if (i == 1) {
+			current_hash = &current->execd_half_1_hash;
+			len = sectionSize / 2;
+			data = (const u8 *)buffer[0];
+		}
+		else if (i == 2) {
+			current_hash = &current->execd_half_2_hash;
+			len = (sectionSize / 2) + (sectionSize % 2);
+			data = (const u8 *) buffer[len];
+		}
+		else if (i == 3) {
+			current_hash = &current->execd_quarter_1_hash;
+			len = sectionSize / 4;
+			data = (const u8 *) buffer[0];
+		}
+		else if (i == 4) {
+			current_hash = &current->execd_quarter_2_hash;
+			len = sectionSize / 4;
+			data = (const u8 *) buffer[len];
+		}
+		else if (i == 5) {
+			current_hash = &current->execd_quarter_3_hash;
+			len = sectionSize / 4;
+			data = (const u8 *) buffer[2 * len];
+		}
+		else if (i == 6) {
+			current_hash = &current->execd_quarter_4_hash;
+			len = (sectionSize / 2) + (sectionSize % 4);
+			data = (const u8 *) buffer[3 * len];
+		}
+
+		/* calculate the has and free it to be used by the other calls */
+		desc.tfm = crypto_alloc_shash("md5", CRYPTO_ALG_TYPE_SHASH, CRYPTO_ALG_ASYNC);
+		crypto_shash_init(&desc);
+		crypto_shash_finup(&desc, (const u8 *)data, (unsigned int) len, current_hash);
+		crypto_free_shash(desc.tfm);
+	}
+
+	/* initialize the matching score for this process */
+	matching_score = 0;
+	p->on_list = NOT_ON_LIST;
+	
 	/*free allocations */
 	kfree((const void *) buffer); 
 	kfree((const void *) ehdr);
@@ -112,74 +159,89 @@ int calculate_hash(struct task_struct *p) {
 	/*resteore the file system */
 	filp_close(file, NULL);
  	set_fs(oldfs); 
-
- 	printk("Correct here 5 \n");
-
- 	add_tohash_table(p);
-
 	return 0;
  }
 
 /* convert the hash to an int and find the bucket for the hash */
-int get_hash_bucket(struct task_struct *p) {
-	 unsigned long res;
-	 int bucket;
-	 kstrtoul((const char *) p->execd_hash, 10 /* base */, &res);
+int get_hash_bucket(u8 *hash) {
+
+	/*unsigned long res;
+	int bucket;
+	kstrtoul((const char *) hash, 10 /* base *, &res);
 
 	bucket = res % NUMBER_OF_BUCKETS;
-
-	printk("res %ld \n", res);
-	printk("res %d \n", bucket);
-
 	if (bucket < 0) 
 		bucket *= -1;
 
-	return bucket;
+	return bucket; */
+	return 0;
 }
 
 /* this function add the process to the hash table based on the 
  process' hash value */
-int add_tohash_table(struct task_struct *p) {
- 	
+int add_tohashes_table(struct task_struct *p) {
  
- 	int hash_int;
+ 	/*int hash_int;
+ 	int i;
+ 	u8 *current_hash;
+ 	hash_IDs hash_number;
+
  	struct hash_table_entry *new_entry;
  	if (p == NULL) return -1;
 
+ 	/*calculate the hash *
+	for (i = 0; i < 7; i++) {
 
- 	printk("add_tohash_table 1 \n");
+		if (i == 0) {
+			current_hash = &p->execd_hash;
+			hash_number = FULL_HASH;
+		}
+		else if (i == 1) {
+			current_hash = &p->execd_half_1_hash;
+			hash_number = FIRST_HALF_HASH;
+		}
+		else if (i == 2) {
+			current_hash = &p->execd_half_2_hash;
+			hash_number = SECOND_HALF_HASH;
+		}
+		else if (i == 3) {
+			current_hash = &p->execd_quarter_1_hash;
+			hash_number = FIRST_QUARTER_HASH;
+		}
+		else if (i == 4) {
+			current_hash = &p->execd_quarter_2_hash;
+			hash_number = SECOND_QUARTER_HASH;
+		}
+		else if (i == 5) {
+			current_hash = &p->execd_quarter_3_hash;
+			hash_number = THIRD_QUARTER_HASH;
+		}
+		else if (i == 6) {
+			current_hash = &p->execd_quarter_4_hash;
+			hash_number = FOURTH_QUARTER_HASH;
+		}
 
- 	if (p->execd_hash == NULL) return -1;
+		if (p->execd_hash == NULL) return -1;
 
- 	hash_int = get_hash_bucket(p);
+		hash_int = get_hash_bucket(current_hash);
+ 		if (hash_int < 0) return -1;
+ 		new_entry = (struct hash_table_entry *) kzalloc((size_t)sizeof(struct hash_table_entry), GFP_KERNEL);
+ 		if (new_entry == NULL) return -1;
+ 		if (hash_table == NULL) return -1;
 
- 	if (hash_int < 0) return -1;
+ 		/* when adding for the first time *
+ 		if (hash_table[hash_int].next != NULL) 
+ 			hash_table[hash_int].next->prev = new_entry;
 
- 	printk("add_tohash_table %d \n", hash_int);
+ 		new_entry->current_task =  p;
+ 		new_entry->hash_number =  hash_number;
 
- 	new_entry = (struct hash_table_entry *)kzalloc((size_t)sizeof(struct hash_table_entry), GFP_KERNEL);
- 	if (new_entry == NULL) return -1;
+ 		new_entry->next = hash_table[hash_int].next;
+ 		new_entry->prev = &hash_table[hash_int];
+ 		hash_table[hash_int].next = new_entry;
+ 		p->hash_entry = new_entry; 
+ 	} */
 
- 	printk("add_tohash_table 3 \n");
-
- 	if (hash_table == NULL) return -1;
- 	printk("add_tohash_table 3 \n");
-
- 	/* when adding for the first time */
- 	if (hash_table[hash_int].next != NULL) 
- 		hash_table[hash_int].next->prev = new_entry;
- 	printk("add_tohash_table 3 \n");
-
- 	new_entry->current_task =  p;
- 	printk("add_tohash_table 4 \n");
- 	new_entry->next = hash_table[hash_int].next;
- 	printk("add_tohash_table 5 \n");
- 	new_entry->prev = &hash_table[hash_int];
-	printk("add_tohash_table 6 \n");
- 	hash_table[hash_int].next = new_entry;
- 	printk("add_tohash_table 7 \n");
- 	p->hash_entry = new_entry; 
- 	printk("add_tohash_table 8 \n");
  	return 0; 
  }
 
@@ -188,20 +250,78 @@ struct task_struct *find_similar_task(struct task_struct *p) {
 
  	/*int hash_int;
  	struct hash_table_entry *temp;
+ 	int i, highest_score;
+ 	u8 *current_hash;
+ 	struct tast_struct *list;
+ 	struct tast_struct *matched_task;
 
  	if (p == NULL) return NULL;
  	if (p->execd_hash == NULL) return NULL;
 
- 	hash_int = get_hash_bucket(p);
- 	temp = hash_table[hash_int].next;
+ 	list = NULL;
+ 	for (i = 0; i < 7; i++) {
 
- 	while (temp != NULL) {
- 		if (strncmp((const char *)temp->current_task->execd_hash, (const char *)p->execd_hash, 32) == 0) 
- 			return temp->current_task;	
+ 		if (i == 0) {
+			current_hash = &p->execd_hash;
+		}
+		else if (i == 1) {
+			current_hash = &p->execd_half_1_hash;
+		}
+		else if (i == 2) {
+			current_hash = &p->execd_half_2_hash;
+		}
+		else if (i == 3) {
+			current_hash = &p->execd_quarter_1_hash;
+		}
+		else if (i == 4) {
+			current_hash = &p->execd_quarter_2_hash;
+		}
+		else if (i == 5) {
+			current_hash = &p->execd_quarter_3_hash;
+		}
+		else if (i == 6) {
+			current_hash = &p->execd_quarter_4_hash;
+		}
 
- 		temp = temp->next;	
- 	} */
- 	return p;
+ 		hash_int = get_hash_bucket(current_hash);
+
+ 		temp = hash_table[hash_int].next;
+
+ 		while (temp != NULL) {
+ 			if (strncmp((const char *)temp->current_task->execd_hash, (const char *)p->execd_hash, 32) == 0) {
+ 				if (temp->hash_number ==FULL_HASH)
+ 					return temp->current_task;
+
+ 				else if ((temp->hash_number == FIRST_HALF_HASH) || (temp->hash_number == SECOND_HALF_HASH))
+ 					temp->current_task->matching_score += 2;
+
+ 				else
+ 					temp->current_task->matching_score += 1;
+ 			}
+
+ 			temp = temp->next;
+
+ 			if (temp->current_task->on_list == (int) NOT_ON_LIST) {
+ 				temp->current_task->on_list = (int) ON_LIST;
+				temp->current_task->next_on_similarity_list = list;
+				list = temp->current_task;
+ 			}	
+ 		} 
+ 	}
+
+ 	highest_score = 0;
+ 	while (list != NULL) {
+ 		if (list->matching_score > highest_score) 
+ 			matched_task = list;
+ 		
+ 		list = list->next_on_similarity_list;
+
+ 		matched_task->matching_score = 0;
+ 		matched_task->next_on_similarity_list = NULL;
+ 	}
+
+ 	return matched_task; */
+ 	return NULL;
  }
 
 /* this function removes the process from the hash table */

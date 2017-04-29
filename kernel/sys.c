@@ -359,14 +359,16 @@ static int set_one_execd(struct task_struct *p, int value, int error)
 
 		
 
-		/*if (p->hash_entry == NULL) { */
+		if (p->hash_entry == NULL) { 
 
-		calculate_hash(p);
-		printk("execd enabled \n");
-		
-		/*if (calculate_hash(p) != 0)
+			calculate_hash(p);
+			printk("execd enabled \n");
+
+			printk(p->hash_entry);
+
+		   /*if (calculate_hash(p) != 0)
 			return -1;*/
-		
+		}
 	}
 
 	else {
