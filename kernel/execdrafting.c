@@ -146,6 +146,8 @@ int calculate_hash(struct task_struct *p) {
 		crypto_shash_init(&desc);
 		crypto_shash_finup(&desc, (const u8 *)data, (unsigned int) len, current_hash);
 		crypto_free_shash(desc.tfm);
+
+		printk("Hash bucket %d\n", get_hash_bucket(current_hash));
 	}
 
 	/* initialize the matching score for this process */
@@ -166,16 +168,15 @@ int calculate_hash(struct task_struct *p) {
 /* convert the hash to an int and find the bucket for the hash */
 int get_hash_bucket(u8 *hash) {
 
-	/*unsigned long res;
+	unsigned long res;
 	int bucket;
-	kstrtoul((const char *) hash, 10 * base *, &res);
+	kstrtoul((const char *) hash, 10 /* base */, &res);
 
 	bucket = res % NUMBER_OF_BUCKETS;
 	if (bucket < 0) 
 		bucket *= -1;
 
-	return bucket; */
-	return 0;
+	return bucket; 
 }
 
 /* this function add the process to the hash table based on the 
