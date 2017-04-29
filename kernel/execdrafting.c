@@ -107,6 +107,7 @@ int calculate_hash(struct task_struct *p) {
 		/* get the right pointer for the beginning of the buffer the the size of the data */
 		if (i == 0) {
 			current_hash = (u8 *) &current->execd_hash;
+			len = sectionSize;
 			data = (const u8 *) &buffer;
 		}
 		else if (i == 1) {
