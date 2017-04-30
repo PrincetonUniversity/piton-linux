@@ -360,8 +360,8 @@ int remove_fromHash_table(struct task_struct *p) {
 
 		if (hash_entry == NULL) return -1;
 
- 		if (hash_entry->prev != NULL) hash_entry->prev->next = temp->next;
- 		if (hash_entry->next != NULL) hash_entry->next->prev = temp->prev;
+ 		if (hash_entry->prev != NULL) hash_entry->prev->next = hash_entry->next;
+ 		if (hash_entry->next != NULL) hash_entry->next->prev = hash_entry->prev;
  		hash_entry->prev = NULL;
  		hash_entry->next = NULL; 
  	}
