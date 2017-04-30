@@ -53,7 +53,76 @@ int get_hash_bucket(u8 *hash) {
 	return bucket; 
 }
 
+/* this function add the process to the hash table based on the 
+ process' hash value */
+int add_tohashes_table(struct task_struct *p) {
+ 
+ 	int hash_int;
+ 	int i;
+ 	u8 *current_hash;
+ 	hash_IDs hash_number;
 
+ 	struct hash_table_entry *new_entry;
+ 	if (p == NULL) return -1;
+
+ 	*calculate the hash *
+	for (i = 0; i < 7; i++) {
+
+		if (i == 0) {
+			current_hash = (u8 *)&p->execd_hash;
+			hash_number = FULL_HASH;
+		}
+		else if (i == 1) {
+			current_hash = (u8 *)&p->execd_half_1_hash;
+			hash_number = FIRST_HALF_HASH;
+		}
+		else if (i == 2) {
+			current_hash = (u8 *)&p->execd_half_2_hash;
+			hash_number = SECOND_HALF_HASH;
+		}
+		else if (i == 3) {
+			current_hash = (u8 *)&p->execd_quarter_1_hash;
+			hash_number = FIRST_QUARTER_HASH;
+		}
+		else if (i == 4) {
+			current_hash = (u8 *)&p->execd_quarter_2_hash;
+			hash_number = SECOND_QUARTER_HASH;
+		}
+		else if (i == 5) {
+			current_hash = (u8 *)&p->execd_quarter_3_hash;
+			hash_number = THIRD_QUARTER_HASH;
+		}
+		else if (i == 6) {
+			current_hash = (u8 *)&p->execd_quarter_4_hash;
+			hash_number = FOURTH_QUARTER_HASH;
+		}
+
+		if (hash_number == NULL) return -1;
+
+		hash_int = get_hash_bucket(current_hash);
+ 		if (hash_int < 0) return -1;
+
+ 		new_entry = (struct hash_table_entry *) kzalloc((size_t)sizeof(struct hash_table_entry), GFP_KERNEL);
+ 		if (new_entry == NULL) return -1;
+ 		if (hash_table == NULL) return -1;
+
+ 		/* when adding for the first time */
+ 		if (hash_table[hash_int].next != NULL) 
+ 			hash_table[hash_int].next->prev = new_entry;
+
+ 		new_entry->current_task =  p;
+ 		new_entry->hash_number =  hash_number;
+
+ 		new_entry->next = hash_table[hash_int].next;
+ 		new_entry->prev = &hash_table[hash_int];
+ 		hash_table[hash_int].next = new_entry;
+ 		/*p->hash_entry = new_entry; */
+ 	} 
+
+ 	return 0; 
+ }
+
+/* this function calculates the hashes associated with the text section of the code */
 int calculate_hash(struct task_struct *p) {
 
 	Elf64_Ehdr *ehdr; 
@@ -174,79 +243,15 @@ int calculate_hash(struct task_struct *p) {
 	kfree((const void *) ehdr);
 	kfree((const void *) section_names);
 
+	add_tohashes_table(p);
+
 	/*resteore the file system */
 	filp_close(file, NULL);
  	set_fs(oldfs); 
 	return 0;
  }
 
-/* this function add the process to the hash table based on the 
- process' hash value */
-int add_tohashes_table(struct task_struct *p) {
- 
- 	/*int hash_int;
- 	int i;
- 	u8 *current_hash;
- 	hash_IDs hash_number;
 
- 	struct hash_table_entry *new_entry;
- 	if (p == NULL) return -1;
-
- 	*calculate the hash *
-	for (i = 0; i < 7; i++) {
-
-		if (i == 0) {
-			current_hash = &p->execd_hash;
-			hash_number = FULL_HASH;
-		}
-		else if (i == 1) {
-			current_hash = &p->execd_half_1_hash;
-			hash_number = FIRST_HALF_HASH;
-		}
-		else if (i == 2) {
-			current_hash = &p->execd_half_2_hash;
-			hash_number = SECOND_HALF_HASH;
-		}
-		else if (i == 3) {
-			current_hash = &p->execd_quarter_1_hash;
-			hash_number = FIRST_QUARTER_HASH;
-		}
-		else if (i == 4) {
-			current_hash = &p->execd_quarter_2_hash;
-			hash_number = SECOND_QUARTER_HASH;
-		}
-		else if (i == 5) {
-			current_hash = &p->execd_quarter_3_hash;
-			hash_number = THIRD_QUARTER_HASH;
-		}
-		else if (i == 6) {
-			current_hash = &p->execd_quarter_4_hash;
-			hash_number = FOURTH_QUARTER_HASH;
-		}
-
-		if (p->execd_hash == NULL) return -1;
-
-		hash_int = get_hash_bucket(current_hash);
- 		if (hash_int < 0) return -1;
- 		new_entry = (struct hash_table_entry *) kzalloc((size_t)sizeof(struct hash_table_entry), GFP_KERNEL);
- 		if (new_entry == NULL) return -1;
- 		if (hash_table == NULL) return -1;
-
- 		* when adding for the first time *
- 		if (hash_table[hash_int].next != NULL) 
- 			hash_table[hash_int].next->prev = new_entry;
-
- 		new_entry->current_task =  p;
- 		new_entry->hash_number =  hash_number;
-
- 		new_entry->next = hash_table[hash_int].next;
- 		new_entry->prev = &hash_table[hash_int];
- 		hash_table[hash_int].next = new_entry;
- 		p->hash_entry = new_entry; 
- 	} */
-
- 	return 0; 
- }
 
 /* finds and returns a task that is similar to task referenced by p */
 struct task_struct *find_similar_task(struct task_struct *p) {
