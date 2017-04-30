@@ -127,7 +127,7 @@ struct task_struct *find_similar_task(struct task_struct *p) {
  	struct hash_table_entry *temp;
  	int i, highest_score;
  	u8 *current_hash;
- 	struct tast_struct *list;
+ 	struct task_struct *list;
  	struct task_struct *matched_task;
 
  	if (p == NULL) return NULL;
