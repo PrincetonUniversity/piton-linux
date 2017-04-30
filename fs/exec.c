@@ -1748,8 +1748,15 @@ static int do_execveat_common(int fd, struct filename *filename,
 	/* copy the filename into the task_struct of the program: kind of Hacky */
 	current->filename = kzalloc((size_t)strlen(bprm->filename), GFP_KERNEL);
 	memcpy((void*)current->filename, (void*)bprm->filename, (size_t)strlen(bprm->filename)); 
-	current->hash_entry = NULL;
+	
 	current->execd_friendly = 0;
+	current->execd_hash_entry = NULL;
+	current->execd_half_1_hash_entry = NULL;
+	current->execd_half_2_hash_entry = NULL;
+	current->execd_quarter_1_hash_entry = NULL;
+	current->execd_quarter_2_hash_entry = NULL;
+	current->execd_quarter_3_hash_entry = NULL;
+	current->execd_quarter_4_hash_entry = NULL;
 
 	/* execve succeeded */
 	current->fs->in_exec = 0;
