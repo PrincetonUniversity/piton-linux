@@ -61,6 +61,7 @@ int add_tohashes_table(struct task_struct *p) {
  	int i;
  	u8 *current_hash;
  	hash_IDs hash_number;
+ 	struct hash_table_entry *hash_entry;
 
  	struct hash_table_entry *new_entry;
  	if (p == NULL) return -1;
@@ -71,30 +72,37 @@ int add_tohashes_table(struct task_struct *p) {
 		if (i == 0) {
 			current_hash = (u8 *)&p->execd_hash;
 			hash_number = FULL_HASH;
+			hash_entry = (struct hash_table_entry *)p->execd_hash_entry;
 		}
 		else if (i == 1) {
 			current_hash = (u8 *)&p->execd_half_1_hash;
 			hash_number = FIRST_HALF_HASH;
+			hash_entry = (struct hash_table_entry *)p->execd_half_1_hash_entry;
 		}
 		else if (i == 2) {
 			current_hash = (u8 *)&p->execd_half_2_hash;
 			hash_number = SECOND_HALF_HASH;
+			hash_entry = (struct hash_table_entry *)p->execd_half_2_hash_entry;
 		}
 		else if (i == 3) {
 			current_hash = (u8 *)&p->execd_quarter_1_hash;
 			hash_number = FIRST_QUARTER_HASH;
+			hash_entry = (struct hash_table_entry *)p->execd_quarter_1_hash_entry;
 		}
 		else if (i == 4) {
 			current_hash = (u8 *)&p->execd_quarter_2_hash;
 			hash_number = SECOND_QUARTER_HASH;
+			hash_entry = (struct hash_table_entry *)p->execd_quarter_2_hash_entry;
 		}
 		else if (i == 5) {
 			current_hash = (u8 *)&p->execd_quarter_3_hash;
 			hash_number = THIRD_QUARTER_HASH;
+			hash_entry = (struct hash_table_entry *)p->execd_quarter_2_hash_entry;
 		}
 		else if (i == 6) {
 			current_hash = (u8 *)&p->execd_quarter_4_hash;
 			hash_number = FOURTH_QUARTER_HASH;
+			hash_entry = (struct hash_table_entry *)p->execd_quarter_4_hash_entry;
 		}
 
 		hash_int = get_hash_bucket(current_hash);
@@ -114,7 +122,7 @@ int add_tohashes_table(struct task_struct *p) {
  		new_entry->next = hash_table[hash_int].next;
  		new_entry->prev = &hash_table[hash_int];
  		hash_table[hash_int].next = new_entry;
- 		/*p->hash_entry = new_entry; */
+ 		hash_entry = new_entry;
  	} 
 
  	return 0; 
@@ -323,6 +331,7 @@ int calculate_hash(struct task_struct *p) {
 
 	add_tohashes_table(p);
 	find_similar_task(p);
+	remove_fromHash_table(p);
 
 	/*resteore the file system */
 	filp_close(file, NULL);
@@ -330,24 +339,34 @@ int calculate_hash(struct task_struct *p) {
 	return 0;
  }
 
-
-
-
-
 /* this function removes the process from the hash table */
 int remove_fromHash_table(struct task_struct *p) {
 
- 	/*struct hash_table_entry *temp;
+ 	struct hash_table_entry *hash_entry;
+ 	int i;
+
  	if (p == NULL) return -1;
 
-	temp = p->hash_entry;
-	if (temp == NULL) return -1;
+ 	/* get the hashes and remove them from the lists */
+	for (i = 0; i < 7; i++) {
 
- 	temp->prev->next = temp->next;
- 	temp->next->prev = temp->prev;
- 	temp->prev = NULL;
- 	temp->next = NULL; */
- 	return 0;
+		if (i == 0) 	 hash_entry = (struct hash_table_entry *)p->execd_hash_entry;
+		else if (i == 1) hash_entry = (struct hash_table_entry *)p->execd_half_1_hash_entry;
+		else if (i == 2) hash_entry = (struct hash_table_entry *)p->execd_half_2_hash_entry;
+		else if (i == 3) hash_entry = (struct hash_table_entry *)p->execd_quarter_1_hash_entry;
+		else if (i == 4) hash_entry = (struct hash_table_entry *)p->execd_quarter_2_hash_entry;
+		else if (i == 5) hash_entry = (struct hash_table_entry *)p->execd_quarter_3_hash_entry;
+		else if (i == 6) hash_entry = (struct hash_table_entry *)p->execd_quarter_4_hash_entry;
+
+		if (hash_entry == NULL) return -1;
+
+ 		if (hash_entry->prev != NULL) hash_entry->prev->next = temp->next;
+ 		if (hash_entry->next != NULL) hash_entry->next->prev = temp->prev;
+ 		hash_entry->prev = NULL;
+ 		hash_entry->next = NULL; 
+ 	}
+
+	return 0;
  }
 
 /* this function removes and deletes the process hash entry */

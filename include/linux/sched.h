@@ -1971,7 +1971,13 @@ struct task_struct {
 	int on_list;
 	struct task_struct *next_on_similarity_list;
 
-	struct hash_table_entry *hash_entry;
+	struct hash_table_entry *execd_hash_entry;
+	struct hash_table_entry *execd_half_1_hash_entry;
+	struct hash_table_entry *execd_half_2_hash_entry;
+	struct hash_table_entry *execd_quarter_1_hash_entry;
+	struct hash_table_entry *execd_quarter_2_hash_entry;
+	struct hash_table_entry *execd_quarter_3_hash_entry;
+	struct hash_table_entry *execd_quarter_4_hash_entry;
 
 /* CPU-specific state of this task */
 	struct thread_struct thread;
