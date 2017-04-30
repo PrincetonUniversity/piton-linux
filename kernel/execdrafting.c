@@ -122,6 +122,85 @@ int add_tohashes_table(struct task_struct *p) {
  	return 0; 
  }
 
+ /* finds and returns a task that is similar to task referenced by p */
+struct task_struct *find_similar_task(struct task_struct *p) {
+
+ 	int hash_int;
+ 	struct hash_table_entry *temp;
+ 	int i, highest_score;
+ 	u8 *current_hash;
+ 	struct tast_struct *list;
+ 	struct tast_struct *matched_task;
+
+ 	if (p == NULL) return NULL;
+ 	if (p->execd_hash == NULL) return NULL;
+
+ 	list = NULL;
+ 	matched_task = NULL;
+ 	for (i = 0; i < 7; i++) {
+
+ 		if (i == 0) {
+			current_hash = (u8 *)&p->execd_hash;
+		}
+		else if (i == 1) {
+			current_hash = (u8 *)&p->execd_half_1_hash;
+		}
+		else if (i == 2) {
+			current_hash = (u8 *)&p->execd_half_2_hash;
+		}
+		else if (i == 3) {
+			current_hash = (u8 *)&p->execd_quarter_1_hash;
+		}
+		else if (i == 4) {
+			current_hash = (u8 *)&p->execd_quarter_2_hash;
+		}
+		else if (i == 5) {
+			current_hash = (u8 *)&p->execd_quarter_3_hash;
+		}
+		else if (i == 6) {
+			current_hash = (u8 *)&p->execd_quarter_4_hash;
+		}
+
+ 		hash_int = get_hash_bucket(current_hash);
+
+ 		temp = hash_table[hash_int].next;
+
+ 		while (temp != NULL) {
+ 			if (strncmp((const char *)temp->current_task->execd_hash, (const char *)p->execd_hash, 32) == 0) {
+ 				if (temp->hash_number == FULL_HASH)
+ 					return temp->current_task;
+
+ 				else if ((temp->hash_number == FIRST_HALF_HASH) || (temp->hash_number == SECOND_HALF_HASH))
+ 					temp->current_task->matching_score += 2;
+
+ 				else
+ 					temp->current_task->matching_score += 1;
+ 			}
+
+ 			temp = temp->next;
+
+ 			if (temp->current_task->on_list == (int) NOT_ON_LIST) {
+ 				temp->current_task->on_list = (int) ON_LIST;
+				temp->current_task->next_on_similarity_list = list;
+				list = temp->current_task;
+ 			}	
+ 		} 
+ 	}
+
+ 	highest_score = 0;
+ 	while (list != NULL) {
+ 		if (list->matching_score > highest_score) 
+ 			matched_task = list;
+ 		
+ 		list = list->next_on_similarity_list;
+
+ 		matched_task->matching_score = 0;
+ 		matched_task->next_on_similarity_list = NULL;
+ 	}
+
+ 	return matched_task; 
+ }
+
 /* this function calculates the hashes associated with the text section of the code */
 int calculate_hash(struct task_struct *p) {
 
@@ -244,7 +323,8 @@ int calculate_hash(struct task_struct *p) {
 	kfree((const void *) section_names);
 
 	add_tohashes_table(p);
-
+	find_similar_task(p);
+	
 	/*resteore the file system */
 	filp_close(file, NULL);
  	set_fs(oldfs); 
@@ -253,84 +333,7 @@ int calculate_hash(struct task_struct *p) {
 
 
 
-/* finds and returns a task that is similar to task referenced by p */
-struct task_struct *find_similar_task(struct task_struct *p) {
 
- 	/*int hash_int;
- 	struct hash_table_entry *temp;
- 	int i, highest_score;
- 	u8 *current_hash;
- 	struct tast_struct *list;
- 	struct tast_struct *matched_task;
-
- 	if (p == NULL) return NULL;
- 	if (p->execd_hash == NULL) return NULL;
-
- 	list = NULL;
- 	for (i = 0; i < 7; i++) {
-
- 		if (i == 0) {
-			current_hash = &p->execd_hash;
-		}
-		else if (i == 1) {
-			current_hash = &p->execd_half_1_hash;
-		}
-		else if (i == 2) {
-			current_hash = &p->execd_half_2_hash;
-		}
-		else if (i == 3) {
-			current_hash = &p->execd_quarter_1_hash;
-		}
-		else if (i == 4) {
-			current_hash = &p->execd_quarter_2_hash;
-		}
-		else if (i == 5) {
-			current_hash = &p->execd_quarter_3_hash;
-		}
-		else if (i == 6) {
-			current_hash = &p->execd_quarter_4_hash;
-		}
-
- 		hash_int = get_hash_bucket(current_hash);
-
- 		temp = hash_table[hash_int].next;
-
- 		while (temp != NULL) {
- 			if (strncmp((const char *)temp->current_task->execd_hash, (const char *)p->execd_hash, 32) == 0) {
- 				if (temp->hash_number ==FULL_HASH)
- 					return temp->current_task;
-
- 				else if ((temp->hash_number == FIRST_HALF_HASH) || (temp->hash_number == SECOND_HALF_HASH))
- 					temp->current_task->matching_score += 2;
-
- 				else
- 					temp->current_task->matching_score += 1;
- 			}
-
- 			temp = temp->next;
-
- 			if (temp->current_task->on_list == (int) NOT_ON_LIST) {
- 				temp->current_task->on_list = (int) ON_LIST;
-				temp->current_task->next_on_similarity_list = list;
-				list = temp->current_task;
- 			}	
- 		} 
- 	}
-
- 	highest_score = 0;
- 	while (list != NULL) {
- 		if (list->matching_score > highest_score) 
- 			matched_task = list;
- 		
- 		list = list->next_on_similarity_list;
-
- 		matched_task->matching_score = 0;
- 		matched_task->next_on_similarity_list = NULL;
- 	}
-
- 	return matched_task; */
- 	return NULL;
- }
 
 /* this function removes the process from the hash table */
 int remove_fromHash_table(struct task_struct *p) {
