@@ -97,8 +97,6 @@ int add_tohashes_table(struct task_struct *p) {
 			hash_number = FOURTH_QUARTER_HASH;
 		}
 
-		if (hash_number == NULL) return -1;
-
 		hash_int = get_hash_bucket(current_hash);
  		if (hash_int < 0) return -1;
 
@@ -130,13 +128,14 @@ struct task_struct *find_similar_task(struct task_struct *p) {
  	int i, highest_score;
  	u8 *current_hash;
  	struct tast_struct *list;
- 	struct tast_struct *matched_task;
+ 	struct task_struct *matched_task;
 
  	if (p == NULL) return NULL;
  	if (p->execd_hash == NULL) return NULL;
 
  	list = NULL;
  	matched_task = NULL;
+
  	for (i = 0; i < 7; i++) {
 
  		if (i == 0) {
@@ -324,7 +323,7 @@ int calculate_hash(struct task_struct *p) {
 
 	add_tohashes_table(p);
 	find_similar_task(p);
-	
+
 	/*resteore the file system */
 	filp_close(file, NULL);
  	set_fs(oldfs); 
