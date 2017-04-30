@@ -65,7 +65,7 @@ int add_tohashes_table(struct task_struct *p) {
  	struct hash_table_entry *new_entry;
  	if (p == NULL) return -1;
 
- 	*calculate the hash *
+ 	/*calculate the hash */
 	for (i = 0; i < 7; i++) {
 
 		if (i == 0) {
