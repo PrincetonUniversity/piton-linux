@@ -22,6 +22,7 @@
 #include <linux/init.h> 
 #include <linux/syscalls.h> 
 #include <linux/fcntl.h> 
+#include <linux/smp.h>
 
 
 /* to remove later */ 
@@ -65,6 +66,8 @@ int add_tohashes_table(struct task_struct *p) {
 
  	struct hash_table_entry *new_entry;
  	if (p == NULL) return -1;
+
+ 	printk("The processor number %d\n", smp_processor_id());
 
  	/*calculate the hash */
 	for (i = 0; i < 7; i++) {

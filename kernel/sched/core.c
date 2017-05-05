@@ -777,9 +777,6 @@ static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
 		enable_execd();		
 	else 
 		disable_execd();*/
-
-	printk("The processor number %d\n", smp_processor_id());
-	
 }
 
 void activate_task(struct rq *rq, struct task_struct *p, int flags)
