@@ -1981,7 +1981,7 @@ struct task_struct {
 
 
 	/*the fields to be used to keep track og the*/
-	char *argv;
+	const char **argv
 	int argc;
 
 /* CPU-specific state of this task */
