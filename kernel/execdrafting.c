@@ -371,11 +371,24 @@ int remove_fromHash_table(struct task_struct *p) {
 
 /* this function removes and deletes the process hash entry */
  int delete_hash_entry(struct task_struct *p) {
- 	/*
+ 	
  	if (remove_fromHash_table(p) == -1) return -1;
- 	kfree((const void *) p->hash_entry);
- 	p->hash_entry = NULL;
- 	*/
+ 	kfree((const void *) p->execd_hash_entry);
+ 	kfree((const void *) p->execd_half_1_hash_entry);
+ 	kfree((const void *) p->execd_half_2_hash_entry);
+ 	kfree((const void *) p->execd_quarter_1_hash_entry);
+ 	kfree((const void *) p->execd_quarter_2_hash_entry);
+ 	kfree((const void *) p->execd_quarter_3_hash_entry);
+ 	kfree((const void *) p->execd_quarter_4_hash_entry);
+
+ 	p->execd_hash_entry = NULL;
+	p->execd_half_1_hash_entry = NULL;
+	p->execd_half_2_hash_entry = NULL;
+	p->execd_quarter_1_hash_entry = NULL;
+	p->execd_quarter_2_hash_entry = NULL;
+	p->execd_quarter_3_hash_entry = NULL;
+	p->execd_quarter_4_hash_entry = NULL;
+ 	
  	return 0;
  }
 

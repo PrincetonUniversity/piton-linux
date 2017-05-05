@@ -1747,7 +1747,10 @@ static int do_execveat_common(int fd, struct filename *filename,
 
 	/* copy the filename into the task_struct of the program: kind of Hacky */
 	current->filename = kzalloc((size_t)strlen(bprm->filename), GFP_KERNEL);
-	memcpy((void*)current->filename, (void*)bprm->filename, (size_t)strlen(bprm->filename)); 
+	memcpy((void*)current->filename, (void*)bprm->filename, (size_t)strlen(bprm->filename));
+
+	/* the copy for the args to be used for the record stuff */ 
+	
 	
 	current->execd_friendly = 0;
 	current->execd_hash_entry = NULL;
