@@ -1979,11 +1979,6 @@ struct task_struct {
 	struct hash_table_entry *execd_quarter_3_hash_entry;
 	struct hash_table_entry *execd_quarter_4_hash_entry;
 
-
-	/*the fields to be used to keep track og the*/
-	const char **argv
-	int argc;
-
 /* CPU-specific state of this task */
 	struct thread_struct thread;
 /*
