@@ -3302,7 +3302,7 @@ again:
 	BUG(); /* the idle class will always have a runnable task */
 }
 
-static void execd_scheduler_helper(struct rq *rq, struct task_struct *prev, struct task_struct *next)
+static void execd_scheduler_helper(struct rq *rq, struct task_struct *prev, struct task_struct *next, bool preempt)
 {
 
 	struct pin_cookie cookie;
@@ -3388,11 +3388,11 @@ static void __sched notrace __schedule(bool preempt)
 			next = find_similar_task(prev);
 			if (next == NULL) {
 				/* disable_execd(); */
-				rq->execd_sched_state == NORMAL;
-				other_rq->execd_sched_state == NORMAL;
+				rq->execd_sched_state = NORMAL;
+				other_rq->execd_sched_state = NORMAL;
 				goto no_execd;
 			}
-			execd_scheduler_helper(rq, prev, next);
+			execd_scheduler_helper(rq, prev, next, preempt);
 			goto return_point;
 		}
 
@@ -3402,7 +3402,7 @@ static void __sched notrace __schedule(bool preempt)
 			cookie = lockdep_pin_lock(&rq->lock);
 			other_next = pick_next_task(other_rq, other_prev, cookie);
 			lockdep_unpin_lock(&rq->lock, cookie);
-			execd_scheduler_helper(other_rq, other_prev, other_next);
+			execd_scheduler_helper(other_rq, other_prev, other_next, preempt);
 
 			if (other_next->execd_friendly) {
 
@@ -3410,7 +3410,7 @@ static void __sched notrace __schedule(bool preempt)
 				if (next != NULL) {
 					other_rq->execd_sched_state  = EXECD_LEADING_THREAD;
 					rq->execd_sched_state = EXECD_DRAFTED_THREAD;
-					execd_scheduler_helper(rq, prev, next);
+					execd_scheduler_helper(rq, prev, next, preempt);
 					goto return_point;
 				}
 				else {
