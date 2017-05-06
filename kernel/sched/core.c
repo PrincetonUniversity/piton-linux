@@ -3396,7 +3396,7 @@ static void __sched notrace __schedule(bool preempt)
 			goto return_point;
 		} 
 
-		/* now handle the case of the leading thread 
+		/*now handle the case of the leading thread */
 		if (rq->execd_sched_state == EXECD_LEADING_THREAD) {	
 
 			cookie = lockdep_pin_lock(&rq->lock);
@@ -3420,7 +3420,7 @@ static void __sched notrace __schedule(bool preempt)
 				}	
 			}
 			
-		}*/
+		}
 	} 
 
 no_execd:	
