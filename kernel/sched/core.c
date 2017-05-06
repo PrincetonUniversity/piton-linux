@@ -3378,25 +3378,25 @@ static void __sched notrace __schedule(bool preempt)
 
 	/* Now, handle the case when ExecD is enable and the thread is the drafted thread */
 	/*TODO: We will need to handle migrations, and to make sure that kicked tasks are saved */
-	if (execd_enabled)  {
+	/*if (execd_enabled)  {
 
 		if (rq->execd_sched_state == EXECD_DRAFTED_THREAD) {
-			/* no preemption of a process on the drafted thread */
-			if (preempt) goto return_point;
+			no preemption of a process on the drafted thread 
+			if (preempt) goto return_point; */
 
-			/* find a new task to run of the current process is being blocked or something */
+			/* find a new task to run of the current process is being blocked or something 
 			next = find_similar_task(prev);
 			if (next == NULL) {
-				/* disable_execd(); */
+				disable_execd(); 
 				rq->execd_sched_state = EXECD_NORMAL;
 				other_rq->execd_sched_state = EXECD_NORMAL;
 				goto no_execd;
 			}
 			execd_scheduler_helper(rq, prev, next, preempt);
 			goto return_point;
-		}
+		} */
 
-		/* now handle the case of the leading thread */
+		/* now handle the case of the leading thread 
 		if (rq->execd_sched_state == EXECD_LEADING_THREAD) {	
 
 			cookie = lockdep_pin_lock(&rq->lock);
@@ -3414,14 +3414,14 @@ static void __sched notrace __schedule(bool preempt)
 					goto return_point;
 				}
 				else {
-					/* disable_execd() */
+					disable_execd() 
 					other_rq->execd_sched_state  = EXECD_NORMAL;
 					rq->execd_sched_state = EXECD_NORMAL;
 				}	
 			}
 			
 		}
-	}
+	} */
 
 no_execd:	
 
@@ -3501,15 +3501,15 @@ no_execd:
 	}
 
 	/* enable Exced when there is the need */
-	if (next->execd_friendly) {
+	/*if (next->execd_friendly) {
 		other_next = find_similar_task(prev);
 		if (other_next != NULL) {
 			rq->execd_sched_state  = EXECD_LEADING_THREAD;
 			other_rq->execd_sched_state = EXECD_DRAFTED_THREAD;
 			execd_scheduler_helper(other_rq, other_prev, other_next, preempt);
-			/*enable Execd*/
+			enable_execd
 		}
-	}
+	}*/
 
 return_point:
 	balance_callback(rq);
