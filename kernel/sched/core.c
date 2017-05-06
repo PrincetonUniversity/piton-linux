@@ -3509,6 +3509,7 @@ no_execd:
 			execd_scheduler_helper(other_rq, other_prev, other_next);
 			/*enable Execd*/
 		}
+	}
 
 return_point:
 	balance_callback(rq);
