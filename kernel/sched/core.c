@@ -3388,8 +3388,8 @@ static void __sched notrace __schedule(bool preempt)
 			next = find_similar_task(prev);
 			if (next == NULL) {
 				/* disable_execd(); */
-				rq->execd_sched_state = NORMAL;
-				other_rq->execd_sched_state = NORMAL;
+				rq->execd_sched_state = EXECD_NORMAL;
+				other_rq->execd_sched_state = EXECD_NORMAL;
 				goto no_execd;
 			}
 			execd_scheduler_helper(rq, prev, next, preempt);
@@ -3415,8 +3415,8 @@ static void __sched notrace __schedule(bool preempt)
 				}
 				else {
 					/* disable_execd() */
-					other_rq->execd_sched_state  = NORMAL;
-					rq->execd_sched_state = NORMAL;
+					other_rq->execd_sched_state  = EXECD_NORMAL;
+					rq->execd_sched_state = EXECD_NORMAL;
 				}	
 			}
 			
@@ -3506,7 +3506,7 @@ no_execd:
 		if (other_next != NULL) {
 			rq->execd_sched_state  = EXECD_LEADING_THREAD;
 			other_rq->execd_sched_state = EXECD_DRAFTED_THREAD;
-			execd_scheduler_helper(other_rq, other_prev, other_next);
+			execd_scheduler_helper(other_rq, other_prev, other_next, preempt);
 			/*enable Execd*/
 		}
 	}
