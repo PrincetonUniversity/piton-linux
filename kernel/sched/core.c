@@ -3502,7 +3502,7 @@ no_execd:
 
 	/* enable Exced when there is the need */
 	if (next->execd_friendly) {
-		/*other_next = find_similar_task(prev);*/
+		other_next = find_similar_task(other_prev);
 		if (other_next != NULL) {
 			rq->execd_sched_state  = EXECD_LEADING_THREAD;
 			other_rq->execd_sched_state = EXECD_DRAFTED_THREAD;
