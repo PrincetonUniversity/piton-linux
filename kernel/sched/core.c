@@ -3311,11 +3311,11 @@ static void execd_scheduler_helper(struct rq *rq, struct task_struct *prev, stru
 	rcu_note_context_switch();
 	smp_mb__before_spinlock(); */
 	raw_spin_lock(&rq->lock);
-	/*cookie = lockdep_pin_lock(&rq->lock);
-	clear_tsk_need_resched(prev);
+	cookie = lockdep_pin_lock(&rq->lock);
+	/*clear_tsk_need_resched(prev);
 	trace_sched_switch(preempt, prev, next);
-	rq = context_switch(rq, prev, next, cookie); unlocks the rq 
-	lockdep_unpin_lock(&rq->lock, cookie); */
+	rq = context_switch(rq, prev, next, cookie); unlocks the rq */
+	lockdep_unpin_lock(&rq->lock, cookie); 
 }
 
 /*
