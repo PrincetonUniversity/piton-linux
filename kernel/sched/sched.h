@@ -643,6 +643,10 @@ struct rq {
 
 	atomic_t nr_iowait;
 
+	/* this is to be used for scheduling execd */
+	int execd_sched_state;
+	struct task_struct *paused_by_execd;
+
 #ifdef CONFIG_SMP
 	struct root_domain *rd;
 	struct sched_domain *sd;

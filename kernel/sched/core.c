@@ -3302,6 +3302,22 @@ again:
 	BUG(); /* the idle class will always have a runnable task */
 }
 
+static void execd_scheduler_helper(struct rq *rq, struct task_struct *prev, struct task_struct *next)
+{
+
+	struct pin_cookie cookie;
+
+	/*local_irq_disable();
+	rcu_note_context_switch();
+	smp_mb__before_spinlock(); */
+	raw_spin_lock(&rq->lock);
+	cookie = lockdep_pin_lock(&rq->lock);
+	clear_tsk_need_resched(prev);
+	trace_sched_switch(preempt, prev, next);
+	rq = context_switch(rq, prev, next, cookie); /* unlocks the rq */
+	lockdep_unpin_lock(&rq->lock, cookie);
+}
+
 /*
  * __schedule() is the main scheduler function.
  *
@@ -3343,15 +3359,71 @@ again:
  */
 static void __sched notrace __schedule(bool preempt)
 {
-	struct task_struct *prev, *next;
+	struct task_struct *prev, *next, *other_prev, *other_next;
 	unsigned long *switch_count;
 	struct pin_cookie cookie;
-	struct rq *rq;
-	int cpu;
+	struct rq *rq, *other_rq;
+	int cpu, other_cpu;
+	int execd_enabled;
 
 	cpu = smp_processor_id();
 	rq = cpu_rq(cpu);
 	prev = rq->curr;
+	other_cpu = (int) ((cpu + 1) / 2); 
+	other_rq = cpu_rq(other_cpu);
+	other_prev = other_rq->curr;
+	execd_enabled = 0; /* this is just dummy code so that we do not break the other stuff 
+						  in principle, we should set this by a hypervisor call to check if 
+						  exced was enebled or not */
+
+	/* Now, handle the case when ExecD is enable and the thread is the drafted thread */
+	/*TODO: We will need to handle migrations, and to make sure that kicked tasks are saved */
+	if (execd_enabled)  {
+
+		if (rq->execd_sched_state == EXECD_DRAFTED_THREAD) {
+			/* no preemption of a process on the drafted thread */
+			if (preempt) goto return_point;
+
+			/* find a new task to run of the current process is being blocked or something */
+			next = find_similar_task(prev);
+			if (next == NULL) {
+				/* disable_execd(); */
+				rq->execd_sched_state == NORMAL;
+				other_rq->execd_sched_state == NORMAL;
+				goto no_execd;
+			}
+			execd_scheduler_helper(rq, prev, next);
+			goto return_point;
+		}
+
+		/* now handle the case of the leading thread */
+		if (rq->execd_sched_state == EXECD_LEADING_THREAD) {	
+
+			cookie = lockdep_pin_lock(&rq->lock);
+			other_next = pick_next_task(other_rq, other_prev, cookie);
+			lockdep_unpin_lock(&rq->lock, cookie);
+			execd_scheduler_helper(other_rq, other_prev, other_next);
+
+			if (other_next->execd_friendly) {
+
+				next = find_similar_task(prev);
+				if (next != NULL) {
+					other_rq->execd_sched_state  = EXECD_LEADING_THREAD;
+					rq->execd_sched_state = EXECD_DRAFTED_THREAD;
+					execd_scheduler_helper(rq, prev, next);
+					goto return_point;
+				}
+				else {
+					/* disable_execd() */
+					other_rq->execd_sched_state  = NORMAL;
+					rq->execd_sched_state = NORMAL;
+				}	
+			}
+			
+		}
+	}
+
+no_execd:	
 
 	schedule_debug(prev);
 
@@ -3421,11 +3493,24 @@ static void __sched notrace __schedule(bool preempt)
 
 		trace_sched_switch(preempt, prev, next);
 		rq = context_switch(rq, prev, next, cookie); /* unlocks the rq */
+
+
 	} else {
 		lockdep_unpin_lock(&rq->lock, cookie);
 		raw_spin_unlock_irq(&rq->lock);
 	}
 
+	/* enable Exced when there is the need */
+	if (next->execd_friendly) {
+		other_next = find_similar_task(prev);
+		if (other_next != NULL) {
+			rq->execd_sched_state  = EXECD_LEADING_THREAD;
+			other_rq->execd_sched_state = EXECD_DRAFTED_THREAD;
+			execd_scheduler_helper(other_rq, other_prev, other_next);
+			/*enable Execd*/
+		}
+
+return_point:
 	balance_callback(rq);
 }
 
@@ -7617,6 +7702,8 @@ void __init sched_init(void)
 		rq->nr_running = 0;
 		rq->calc_load_active = 0;
 		rq->calc_load_update = jiffies + LOAD_FREQ;
+		rq->execd_sched_state = EXECD_NORMAL;
+		rq->paused_by_execd = NULL;
 		init_cfs_rq(&rq->cfs);
 		init_rt_rq(&rq->rt);
 		init_dl_rq(&rq->dl);

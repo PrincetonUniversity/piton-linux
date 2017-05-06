@@ -136,6 +136,11 @@ struct blk_plug;
 struct filename;
 struct nameidata;
 
+/* Defines to be used for making CPU scheduling state */
+#define EXECD_NORMAL 0
+#define EXECD_LEADING_THREAD 1
+#define EXECD_DRAFTED_THREAD 2
+
 #define VMACACHE_BITS 2
 #define VMACACHE_SIZE (1U << VMACACHE_BITS)
 #define VMACACHE_MASK (VMACACHE_SIZE - 1)
