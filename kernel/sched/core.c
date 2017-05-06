@@ -3501,15 +3501,15 @@ no_execd:
 	}
 
 	/* enable Exced when there is the need */
-	/*if (next->execd_friendly) {
+	if (next->execd_friendly) {
 		other_next = find_similar_task(prev);
 		if (other_next != NULL) {
 			rq->execd_sched_state  = EXECD_LEADING_THREAD;
 			other_rq->execd_sched_state = EXECD_DRAFTED_THREAD;
 			execd_scheduler_helper(other_rq, other_prev, other_next, preempt);
-			enable_execd
+			/*enable_execd*/
 		}
-	}*/
+	}
 
 return_point:
 	balance_callback(rq);
