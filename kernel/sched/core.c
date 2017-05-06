@@ -3414,7 +3414,7 @@ static void __sched notrace __schedule(bool preempt)
 					goto return_point;
 				}
 				else {
-					disable_execd() 
+					/*disable_execd() */
 					other_rq->execd_sched_state  = EXECD_NORMAL;
 					rq->execd_sched_state = EXECD_NORMAL;
 				}	
