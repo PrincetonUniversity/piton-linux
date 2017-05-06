@@ -3378,13 +3378,13 @@ static void __sched notrace __schedule(bool preempt)
 
 	/* Now, handle the case when ExecD is enable and the thread is the drafted thread */
 	/*TODO: We will need to handle migrations, and to make sure that kicked tasks are saved */
-	/*if (execd_enabled)  {
+	if (execd_enabled)  {
 
 		if (rq->execd_sched_state == EXECD_DRAFTED_THREAD) {
-			no preemption of a process on the drafted thread 
-			if (preempt) goto return_point; */
+			/*no preemption of a process on the drafted thread */
+			if (preempt) goto return_point; 
 
-			/* find a new task to run of the current process is being blocked or something 
+			/* find a new task to run of the current process is being blocked or something */
 			next = find_similar_task(prev);
 			if (next == NULL) {
 				disable_execd(); 
@@ -3394,7 +3394,7 @@ static void __sched notrace __schedule(bool preempt)
 			}
 			execd_scheduler_helper(rq, prev, next, preempt);
 			goto return_point;
-		} */
+		} 
 
 		/* now handle the case of the leading thread 
 		if (rq->execd_sched_state == EXECD_LEADING_THREAD) {	
