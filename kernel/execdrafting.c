@@ -286,32 +286,38 @@ int calculate_hash(struct task_struct *p) {
 		else if (i == 1) {
 			current_hash = (u8 *)&current->execd_half_1_hash;
 			len = sectionSize / 2;
-			data = (const u8 *)&buffer[0];
+			data = (const u8 *) &buffer[0];
+			printk("execd_half_1_hash %s\n", buffer[len]);
 		}
 		else if (i == 2) {
 			current_hash = (u8 *)&current->execd_half_2_hash;
 			len = (sectionSize / 2) + (sectionSize % 2);
 			data = (const u8 *) &buffer[len];
+			printk("execd_half_2_hash %s\n", buffer[len]);
 		}
 		else if (i == 3) {
 			current_hash = (u8 *)&current->execd_quarter_1_hash;
 			len = sectionSize / 4;
 			data = (const u8 *) &buffer[0];
+			printk("execd_quarter_1_hash %s\n", buffer[len]);
 		}
 		else if (i == 4) {
 			current_hash = (u8 *)&current->execd_quarter_2_hash;
 			len = sectionSize / 4;
 			data = (const u8 *) &buffer[len];
+			printk("execd_quarter_2_hash %s\n", buffer[len]);
 		}
 		else if (i == 5) {
 			current_hash = (u8 *)&current->execd_quarter_3_hash;
 			len = sectionSize / 4;
 			data = (const u8 *) &buffer[2 * len];
+			printk("execd_quarter_3_hash %s\n", buffer[len]);
 		}
 		else if (i == 6) {
 			current_hash = (u8 *)&current->execd_quarter_4_hash;
 			len = (sectionSize / 2) + (sectionSize % 4);
 			data = (const u8 *) &buffer[3 * len];
+			printk("execd_quarter_4_hash %s\n", buffer[len]);
 		}
 
 		/* calculate the has and free it to be used by the other calls */
