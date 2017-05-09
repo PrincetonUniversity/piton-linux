@@ -218,7 +218,7 @@ int calculate_hash(struct task_struct *p) {
  	Elf64_Shdr *sectionHeader;
  	Elf64_Shdr *sh_strtab;
  	uint64_t sectionSize, sectionOffset;
- 	loff_t position;  
+ 	loff_t position, temp_position;  
  	struct file *file;
 	struct shash_desc desc;
 	char *buffer;
@@ -270,9 +270,9 @@ int calculate_hash(struct task_struct *p) {
 
 	/* read the section if we found it and compute the has of the text section */
 	kfree((const void *) buffer);
-	buffer = kzalloc((size_t)sectionSize, GFP_KERNEL);
+	/*buffer = kzalloc((size_t)sectionSize, GFP_KERNEL);
 	if (buffer == NULL) return -1; 
-	vfs_read(file, buffer, sectionSize, &position); 
+	vfs_read(file, buffer, sectionSize, &position);*/
 
 	/*calculate the hashes */
 	for (i = 0; i < 7; i++) {
@@ -281,44 +281,56 @@ int calculate_hash(struct task_struct *p) {
 		if (i == 0) {
 			current_hash = (u8 *) &current->execd_hash;
 			len = sectionSize;
-			data = (const u8 *) &buffer;
+			temp_position = 0;
+			/*data = (const u8 *) &buffer;*/
 		}
 		else if (i == 1) {
 			current_hash = (u8 *)&current->execd_half_1_hash;
 			len = sectionSize / 2;
-			data = (const u8 *) &buffer[0];
-			printk("execd_half_1_hash %s\n", data);
+			temp_position = 0;
+			/*data = (const u8 *) &buffer[0];
+			printk("execd_half_1_hash %s\n", data);*/
 		}
 		else if (i == 2) {
 			current_hash = (u8 *)&current->execd_half_2_hash;
 			len = (sectionSize / 2) + (sectionSize % 2);
-			data = (const u8 *) &buffer[len];
-			printk("execd_half_2_hash %s\n", data);
+			temp_position = len;
+			/*data = (const u8 *) &buffer[len];
+			printk("execd_half_2_hash %s\n", data);*/
 		}
 		else if (i == 3) {
 			current_hash = (u8 *)&current->execd_quarter_1_hash;
 			len = sectionSize / 4;
-			data = (const u8 *) &buffer[0];
-			printk("execd_quarter_1_hash %s\n", data);
+			temp_position = 0;
+			/*data = (const u8 *) &buffer[0];
+			printk("execd_quarter_1_hash %s\n", data);*/
 		}
 		else if (i == 4) {
 			current_hash = (u8 *)&current->execd_quarter_2_hash;
 			len = sectionSize / 4;
-			data = (const u8 *) &buffer[len];
-			printk("execd_quarter_2_hash %s\n", data);
+			temp_position = len;
+			/*data = (const u8 *) &buffer[len];
+			printk("execd_quarter_2_hash %s\n", data);*/
 		}
 		else if (i == 5) {
 			current_hash = (u8 *)&current->execd_quarter_3_hash;
 			len = sectionSize / 4;
-			data = (const u8 *) &buffer[2 * len];
-			printk("execd_quarter_3_hash %s\n", data);
+			temp_position = 2 * len;
+			/*data = (const u8 *) &buffer[2 * len];
+			printk("execd_quarter_3_hash %s\n", data);*/
 		}
 		else if (i == 6) {
 			current_hash = (u8 *)&current->execd_quarter_4_hash;
 			len = (sectionSize / 2) + (sectionSize % 4);
-			data = (const u8 *) &buffer[3 * len];
-			printk("execd_quarter_4_hash %s\n", data);
+			temp_position = 3 * len;
+			/*data = (const u8 *) &buffer[3 * len];
+			printk("execd_quarter_4_hash %s\n", data);*/
 		}
+
+		buffer = kzalloc((size_t)len, GFP_KERNEL);
+		if (buffer == NULL) return -1; 
+		temp_position = position + temp_position;
+		vfs_read(file, buffer, len, &temp_position); 
 
 		/* calculate the has and free it to be used by the other calls */
 		desc.tfm = crypto_alloc_shash("md5", CRYPTO_ALG_TYPE_SHASH, CRYPTO_ALG_ASYNC);
@@ -327,6 +339,7 @@ int calculate_hash(struct task_struct *p) {
 		crypto_free_shash(desc.tfm);
 
 		printk("Hash bucket %d\n", get_hash_bucket(current_hash));
+		kfree((const void *) buffer);
 	}
 
 	/* initialize the matching score for this process */
@@ -334,7 +347,7 @@ int calculate_hash(struct task_struct *p) {
 	p->on_list = NOT_ON_LIST;
 	
 	/*free allocations */
-	kfree((const void *) buffer); 
+	/*kfree((const void *) buffer); */
 	kfree((const void *) ehdr);
 	kfree((const void *) section_names);
 
