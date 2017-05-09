@@ -335,7 +335,7 @@ int calculate_hash(struct task_struct *p) {
 		/* calculate the has and free it to be used by the other calls */
 		desc.tfm = crypto_alloc_shash("md5", CRYPTO_ALG_TYPE_SHASH, CRYPTO_ALG_ASYNC);
 		crypto_shash_init(&desc);
-		crypto_shash_finup(&desc, (const u8 *)data, (unsigned int) len, current_hash);
+		crypto_shash_finup(&desc, (const u8 *)buffer, (unsigned int) len, current_hash);
 		crypto_free_shash(desc.tfm);
 
 		printk("Hash bucket %d\n", get_hash_bucket(current_hash));
