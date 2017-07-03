@@ -28,6 +28,7 @@
 #include <linux/interrupt.h>
 
 #include <asm/oplib.h>
+#include <asm/hypervisor.h>
 
 #include "dbg.h"
 
@@ -144,8 +145,8 @@ struct net_local {
 	bool has_mdio;
 };
 
-extern u32 sunhv_net_read(void *pa);
-extern u32 sunhv_net_write(u32 l, void *pa);
+//extern u32 sunhv_net_read(void *pa);
+//extern u32 sunhv_net_write(u32 l, void *pa);
 
 struct net_device *emaclite_net_device;
 //static struct timer_list net_poll_timer;
