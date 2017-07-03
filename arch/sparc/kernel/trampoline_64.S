@@ -259,14 +259,6 @@ niagara_lock_tlb:
 	add		%l3, %g2, %o0
 	clr		%o1
 	add		%l4, %g2, %o2
-	mov		HV_MMU_IMMU, %o3
-	ta		HV_FAST_TRAP
-
-	mov		HV_FAST_MMU_MAP_PERM_ADDR, %o5
-	sllx		%l5, 22, %g2
-	add		%l3, %g2, %o0
-	clr		%o1
-	add		%l4, %g2, %o2
 	mov		HV_MMU_DMMU, %o3
 	ta		HV_FAST_TRAP
 

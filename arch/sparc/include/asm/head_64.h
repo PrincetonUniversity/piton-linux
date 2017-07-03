@@ -12,6 +12,7 @@
 	.word	0x81540000 | (N << 25)
 
 #define KERNBASE	0x400000
+#define IOBASE		0xfffff0c00000
 
 #define	PTREGS_OFF	(STACK_BIAS + STACKFRAME_SZ)
 
