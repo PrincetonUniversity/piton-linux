@@ -246,6 +246,35 @@ niagara_lock_tlb:
 	bne,pt		%xcc, 1b
 	 nop
 
+	sethi		%hi(IOBASE), %l3
+	sethi		%hi(io_locked_tte_data), %l4
+	ldx		[%l4 + %lo(io_locked_tte_data)], %l4
+	clr		%l5
+	sethi		%hi(num_io_image_mappings), %l6
+	lduw		[%l6 + %lo(num_io_image_mappings)], %l6
+
+1:
+	mov		HV_FAST_MMU_MAP_PERM_ADDR, %o5
+	sllx		%l5, 22, %g2
+	add		%l3, %g2, %o0
+	clr		%o1
+	add		%l4, %g2, %o2
+	mov		HV_MMU_IMMU, %o3
+	ta		HV_FAST_TRAP
+
+	mov		HV_FAST_MMU_MAP_PERM_ADDR, %o5
+	sllx		%l5, 22, %g2
+	add		%l3, %g2, %o0
+	clr		%o1
+	add		%l4, %g2, %o2
+	mov		HV_MMU_DMMU, %o3
+	ta		HV_FAST_TRAP
+
+	add		%l5, 1, %l5
+	cmp		%l5, %l6
+	bne,pt		%xcc, 1b
+	 nop
+
 after_lock_tlb:
 	wrpr		%g0, (PSTATE_PRIV | PSTATE_PEF), %pstate
 	wr		%g0, 0, %fprs
