@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdint.h>
-#include <wincodec.h>
+#include <hypervisor.h>
 
-#define NEKO_CMD_ADDR XPAR_AXI_SLAVE_0_S00_AXI_BASEADDR
+#define NEKO_CMD_ADDR 0xfff0e00000
 #define NEKO_BASE_LDS (NEKO_CMD_ADDR + 16)
 #define NEKO_INSTR_ADDR (NEKO_CMD_ADDR + 28)
 #define NEKO_INSTR_VALUE (NEKO_CMD_ADDR + 32)
