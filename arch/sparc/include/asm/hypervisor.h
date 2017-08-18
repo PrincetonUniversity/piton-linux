@@ -1570,9 +1570,20 @@ unsigned long sun4v_intr_settarget(unsigned long sysino, unsigned long cpuid);
 #endif
 
 
-#define HV_PICO_START 0xf4
+#define HV_PICO_START 0xf6
 #ifndef __ASSEMBLY__
 unsigned long hcall_pico_start(void);
+
+
+#define SUNHV_NET_READ	     0xf2
+#define SUNHV_NET_WRITE      0xf3
+#define SUNHV_BYTE_READ	     0xf4
+#define SUNHV_BYTE_WRITE      0xf5
+
+unsigned long sunhv_net_read(void *pa);
+unsigned long sunhv_net_write(u32 l, void *pa);
+unsigned long sunhv_byte_read(void *pa);
+unsigned long sunhv_byte_write(u8 l, void *pa);
 #endif
 
 /* vintr_get_cookie()

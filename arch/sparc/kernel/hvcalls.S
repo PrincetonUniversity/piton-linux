@@ -866,3 +866,35 @@ ENTRY(hcall_pico_start)
 	retl
 	nop
 ENDPROC(hcall_pico_start)
+
+ENTRY(sunhv_net_read)
+    mov     SUNHV_NET_READ, %o5
+    ta      HV_FAST_TRAP
+    mov     %o1, %o0
+    retl
+    nop
+ENDPROC(sunhv_net_read)
+
+ENTRY(sunhv_net_write)
+    mov     SUNHV_NET_WRITE, %o5
+    ta      HV_FAST_TRAP
+    mov     %o1, %o0
+    retl
+    nop
+ENDPROC(sunhv_net_write)
+
+ENTRY(sunhv_byte_read)
+    mov     SUNHV_BYTE_READ, %o5
+    ta      HV_FAST_TRAP
+    mov     %o1, %o0
+    retl
+    nop
+ENDPROC(sunhv_byte_read)
+
+ENTRY(sunhv_byte_write)
+    mov     SUNHV_BYTE_WRITE, %o5
+    ta      HV_FAST_TRAP
+    mov     %o1, %o0
+    retl
+    nop
+ENDPROC(sunhv_byte_write)
