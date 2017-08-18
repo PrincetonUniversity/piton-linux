@@ -903,4 +903,6 @@ asmlinkage long sys_pkey_mprotect(unsigned long start, size_t len,
 asmlinkage long sys_pkey_alloc(unsigned long flags, unsigned long init_val);
 asmlinkage long sys_pkey_free(int pkey);
 
+asmlinkage long sys_neko_exec(uint32_t* ins_mem, uint32_t* data_mem, unsigned long long ins_mem_len, unsigned long long data_mem_len);
+
 #endif
