@@ -1,6 +1,5 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <hypervisor.h>
+#include <asm/hypervisor.h>
+#include <linux/syscalls.h>
 
 #define NEKO_CMD_ADDR 0xfff0e00000
 #define NEKO_BASE_LDS (NEKO_CMD_ADDR + 16)
@@ -46,19 +45,18 @@
 #define MEM_WR_ADDR_OUT 20
 #define KERNEL_DONE_OUT 50
 
-SYSCALL_DEFINE4(neko_exec, uint32_t *, ins_mem, uint32_t *, data_mem, unsigned long long, ins_mem_len, unsigned long long, data_mem_len) {
+SYSCALL_DEFINE4(neko_exec, uint32_t __user *, ins_mem, uint32_t __user *, data_mem, unsigned long long, ins_mem_len, unsigned long long, data_mem_len) {
 
     int instrAddrCnt = 0;
-	char cmdBuffer;
-	char sendBuffer[4];
     u32 readData;
+    int index;
 
-    XIo_Out32(NEKO_BASE_LDS, 0xfff0e00000);
+    sunhv_net_write(0xfff0e00000, (void *)NEKO_BASE_LDS);
 
     // First we write the instructions into neko's instruction memory
     for (index = 0; index < ins_mem_len; index++) {
-        sunhv_net_write(NEKO_INSTR_ADDR, instrAddrCnt);
-        sunhv_net_write(NEKO_INSTR_VALUE, instr_mem[index]);
+        sunhv_net_write(instrAddrCnt, (void *)NEKO_INSTR_ADDR);
+        sunhv_net_write(ins_mem[index], (void *)NEKO_INSTR_VALUE);
         instrAddrCnt += 1;
     }
 
@@ -69,45 +67,45 @@ SYSCALL_DEFINE4(neko_exec, uint32_t *, ins_mem, uint32_t *, data_mem, unsigned l
     //}
 
     while (1) {
-        readData = sunhv_net_read(NEKO_MEM_OP);
+        readData = sunhv_net_read((void *)NEKO_MEM_OP);
 
         if (readData == MEM_WR_ACK_WAIT || readData == MEM_RD_ACK_WAIT) {
             int nextValue = (readData == MEM_RD_ACK_WAIT) ? MEM_RD_RDY_WAIT : MEM_WR_RDY_WAIT;
             int address;
 
-            address = sunhv_net_read(NEKO_MEM_ADDR);
+            address = sunhv_net_read((void *)NEKO_MEM_ADDR);
 
-            sunhv_net_write(NEKO_MEM_ACK, 0);
-            sunhv_net_write(NEKO_MEM_ACK, 1);
-            sunhv_net_write(NEKO_MEM_ACK, 0);
+            sunhv_net_write(0, (void *)NEKO_MEM_ACK);
+            sunhv_net_write(1, (void *)NEKO_MEM_ACK);
+            sunhv_net_write(0, (void *)NEKO_MEM_ACK);
 
             do {
-                readData = sunhv_net_read(NEKO_MEM_OP);
+                readData = sunhv_net_read((void *)NEKO_MEM_OP);
             } while(readData != nextValue);
 
 
             if (nextValue == MEM_RD_RDY_WAIT)
             {
-                sunhv_net_write(NEKO_MEM_WR_DATA, data_mem[address]);
-                sunhv_net_write(NEKO_MEM_WR_EN, 0);
-                sunhv_net_write(NEKO_MEM_WR_EN, 1);
-                sunhv_net_write(NEKO_MEM_WR_EN, 0);
+                sunhv_net_write(data_mem[address], (void *)NEKO_MEM_WR_DATA);
+                sunhv_net_write(0, (void *)NEKO_MEM_WR_EN);
+                sunhv_net_write(1, (void *)NEKO_MEM_WR_EN);
+                sunhv_net_write(0, (void *)NEKO_MEM_WR_EN);
                 nextValue = MEM_RD_LSU_WAIT;
             }
             else
             {
-                readData = sunhv_net_read(NEKO_MEM_RD_DATA);
+                readData = sunhv_net_read((void *)NEKO_MEM_RD_DATA);
                 data_mem[address] = readData;
                 nextValue = MEM_WR_LSU_WAIT;
             }
 
-            sunhv_net_write(NEKO_MEM_DONE, 0);
-            sunhv_net_write(NEKO_MEM_DONE, 1);
-            sunhv_net_write(NEKO_MEM_DONE, 0);
+            sunhv_net_write(0, (void *)NEKO_MEM_DONE);
+            sunhv_net_write(1, (void *)NEKO_MEM_DONE);
+            sunhv_net_write(0, (void *)NEKO_MEM_DONE);
 
-            if(XIo_In32(NEKO_CMD_ADDR) == 1)
+            if(sunhv_net_read((void *)NEKO_CMD_ADDR) == 1)
             {
-                readData = XIo_In32(NEKO_CYCLE_COUNTER);
+                readData = sunhv_net_read((void *)NEKO_CYCLE_COUNTER);
                 return readData;
             }
         }

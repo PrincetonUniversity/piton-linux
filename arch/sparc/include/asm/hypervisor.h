@@ -1576,10 +1576,10 @@ unsigned long sun4v_intr_settarget(unsigned long sysino, unsigned long cpuid);
 #define SUNHV_BYTE_WRITE      0xf5
 
 #ifndef __ASSEMBLY__
-u32 sunhv_net_read(void *pa);
-u32 sunhv_net_write(u32 l, void *pa);
-u8 sunhv_byte_read(void *pa);
-u32 sunhv_byte_write(u8 l, void *pa);
+unsigned long sunhv_net_read(void *pa);
+unsigned long sunhv_net_write(unsigned long l, void *pa);
+unsigned char sunhv_byte_read(void *pa);
+unsigned long sunhv_byte_write(unsigned char l, void *pa);
 #endif
 
 /* vintr_get_cookie()
