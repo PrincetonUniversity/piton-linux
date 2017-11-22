@@ -219,9 +219,9 @@ static irqreturn_t sunhv_interrupt(int irq, void *dev_id)
 	unsigned long flags;
 
 	/* Read IIR to clear transmit interrupt */
-       	sunhv_byte_read(0xfff0c2c000 + 2);
+       	sunhv_byte_read(0xfffffffff0c2c000 + 2);
 	/* Disable interrupts on the 16550 UART */
-       	sunhv_byte_write(0x0, 0xfff0c2c000 + 1);
+    //   	sunhv_byte_write(0x0, 0xfff0c2c000 + 1);
 
 	spin_lock_irqsave(&port->lock, flags);
 	tport = receive_chars(port);
@@ -232,7 +232,8 @@ static irqreturn_t sunhv_interrupt(int irq, void *dev_id)
 		tty_flip_buffer_push(tport);
 
 	/* Reenable interrupts on the 16550 UART */
-       	sunhv_byte_write(0x3, 0xfff0c2c000 + 1);
+    //   	sunhv_byte_write(0x3, 0xfff0c2c000 + 1);
+    //sunhv_byte_write(0x0, 0xffffff9f00000000);
 
 	return IRQ_HANDLED;
 }
@@ -576,7 +577,7 @@ static int hv_probe(struct platform_device *op)
 		goto out_remove_port;
 
 	/* Actually enable interrupts on the 16550 UART */
-       	sunhv_byte_write(0x3, 0xfff0c2c000 + 1);
+       	sunhv_byte_write(0x3, 0xfffffffff0c2c000 + 1);
 
 	platform_set_drvdata(op, port);
 
