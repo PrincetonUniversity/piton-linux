@@ -59,7 +59,7 @@ SYSCALL_DEFINE4(neko_exec, uint32_t __user *, ins_mem, uint32_t __user *, data_m
     // First we write the instructions into neko's instruction memory
     for (index = 0; index < ins_mem_len; index++) {
         sunhv_net_write(instrAddrCnt, (void *)NEKO_INSTR_ADDR);
-        sunhv_net_write(ins_mem[index], (void *)NEKO_INSTR_VALUE);
+        sunhv_net_write(ins_buf[index], (void *)NEKO_INSTR_VALUE);
         instrAddrCnt += 1;
     }
 
