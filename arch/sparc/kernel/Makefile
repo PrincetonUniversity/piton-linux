@@ -69,6 +69,7 @@ obj-$(CONFIG_SPARC64)   += sstate.o
 obj-$(CONFIG_SPARC64)   += mdesc.o
 obj-$(CONFIG_SPARC64)	+= pcr.o
 obj-$(CONFIG_SPARC64)	+= nmi.o
+obj-$(CONFIG_SPARC64)	+= pico.o
 obj-$(CONFIG_SPARC64_SMP) += cpumap.o
 
 obj-y                     += dma.o

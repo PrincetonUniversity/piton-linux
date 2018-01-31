@@ -1569,6 +1569,12 @@ unsigned long sun4v_intr_gettarget(unsigned long sysino);
 unsigned long sun4v_intr_settarget(unsigned long sysino, unsigned long cpuid);
 #endif
 
+
+#define HV_PICO_START 0xf4
+#ifndef __ASSEMBLY__
+unsigned long hcall_pico_start(void);
+#endif
+
 /* vintr_get_cookie()
  * TRAP:	HV_FAST_TRAP
  * FUNCTION:	HV_FAST_VINTR_GET_COOKIE

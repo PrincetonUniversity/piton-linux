@@ -859,3 +859,10 @@ ENTRY(sun4v_m7_set_perfreg)
 	retl
 	nop
 ENDPROC(sun4v_m7_set_perfreg)
+
+ENTRY(hcall_pico_start)
+	mov	HV_PICO_START, %o5
+	ta	HV_FAST_TRAP
+	retl
+	nop
+ENDPROC(hcall_pico_start)
