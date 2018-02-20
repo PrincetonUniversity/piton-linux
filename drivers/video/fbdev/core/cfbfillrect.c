@@ -20,11 +20,11 @@
 #include "fb_draw.h"
 
 #if BITS_PER_LONG == 32
-#  define FB_WRITEL fb_writel
-#  define FB_READL  fb_readl
+#  define FB_WRITEL sunhv_writel
+#  define FB_READL  sunhv_readl
 #else
-#  define FB_WRITEL fb_writeq
-#  define FB_READL  fb_readq
+#  define FB_WRITEL sunhv_writeq
+#  define FB_READL  sunhv_readq
 #endif
 
     /*
