@@ -69,8 +69,8 @@ static const u32 cfb_tab32[] = {
 	0x00000000, 0xffffffff
 };
 
-#define FB_WRITEL fb_writel
-#define FB_READL  fb_readl
+#define FB_WRITEL sunhv_writel
+#define FB_READL  sunhv_readl
 
 static inline void color_imageblit(const struct fb_image *image, 
 				   struct fb_info *p, u8 __iomem *dst1, 

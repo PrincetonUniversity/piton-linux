@@ -1588,6 +1588,26 @@ unsigned long sun4v_intr_gettarget(unsigned long sysino);
 unsigned long sun4v_intr_settarget(unsigned long sysino, unsigned long cpuid);
 #endif
 
+#define SUNHV_READB         		0xf2
+#define SUNHV_WRITEB      			0xf3
+#define SUNHV_READW         		0xf4
+#define SUNHV_WRITEW      			0xf5
+#define SUNHV_READL         		0xf6
+#define SUNHV_WRITEL      			0xf7
+#define SUNHV_READQ         		0xf8
+#define SUNHV_WRITEQ      			0xf9
+
+#ifndef __ASSEMBLY__
+u8 sunhv_readb(void *pa);
+void sunhv_writeb(u8 l, void *pa);
+u16 sunhv_readw(void *pa);
+void sunhv_writew(u16 l, void *pa);
+u32 sunhv_readl(void *pa);
+void sunhv_writel(u32 l, void *pa);
+u64 sunhv_readq(void *pa);
+void sunhv_writeq(u64 l, void *pa);
+#endif
+
 /* vintr_get_cookie()
  * TRAP:	HV_FAST_TRAP
  * FUNCTION:	HV_FAST_VINTR_GET_COOKIE

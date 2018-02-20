@@ -871,3 +871,67 @@ ENTRY(sun4v_m7_set_perfreg)
 	retl
 	nop
 ENDPROC(sun4v_m7_set_perfreg)
+
+ENTRY(sunhv_readb)
+    mov     SUNHV_READB, %o5
+    ta      HV_FAST_TRAP
+    mov     %o1, %o0
+    retl
+    nop
+ENDPROC(sunhv_readb)
+
+ENTRY(sunhv_writeb)
+    mov     SUNHV_WRITEB, %o5
+    ta      HV_FAST_TRAP
+    mov     %o1, %o0
+    retl
+    nop
+ENDPROC(sunhv_writeb)
+
+ENTRY(sunhv_readw)
+    mov     SUNHV_READW, %o5
+    ta      HV_FAST_TRAP
+    mov     %o1, %o0
+    retl
+    nop
+ENDPROC(sunhv_readw)
+
+ENTRY(sunhv_writew)
+    mov     SUNHV_WRITEW, %o5
+    ta      HV_FAST_TRAP
+    mov     %o1, %o0
+    retl
+    nop
+ENDPROC(sunhv_writew)
+
+ENTRY(sunhv_readl)
+    mov     SUNHV_READL, %o5
+    ta      HV_FAST_TRAP
+    mov     %o1, %o0
+    retl
+    nop
+ENDPROC(sunhv_readl)
+
+ENTRY(sunhv_writel)
+    mov     SUNHV_WRITEL, %o5
+    ta      HV_FAST_TRAP
+    mov     %o1, %o0
+    retl
+    nop
+ENDPROC(sunhv_writel)
+
+ENTRY(sunhv_readq)
+    mov     SUNHV_READQ, %o5
+    ta      HV_FAST_TRAP
+    mov     %o1, %o0
+    retl
+    nop
+ENDPROC(sunhv_readq)
+
+ENTRY(sunhv_writeq)
+    mov     SUNHV_WRITEQ, %o5
+    ta      HV_FAST_TRAP
+    mov     %o1, %o0
+    retl
+    nop
+ENDPROC(sunhv_writeq)
