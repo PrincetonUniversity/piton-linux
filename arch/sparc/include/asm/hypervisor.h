@@ -1598,14 +1598,14 @@ unsigned long sun4v_intr_settarget(unsigned long sysino, unsigned long cpuid);
 #define SUNHV_WRITEQ      			0xf9
 
 #ifndef __ASSEMBLY__
-u8 sunhv_readb(void *pa);
-void sunhv_writeb(u8 l, void *pa);
-u16 sunhv_readw(void *pa);
-void sunhv_writew(u16 l, void *pa);
-u32 sunhv_readl(void *pa);
-void sunhv_writel(u32 l, void *pa);
-u64 sunhv_readq(void *pa);
-void sunhv_writeq(u64 l, void *pa);
+u8 sunhv_readb(const volatile void *pa);
+void sunhv_writeb(u8 l, const volatile void *pa);
+u16 sunhv_readw(const volatile void *pa);
+void sunhv_writew(u16 l, const volatile void *pa);
+u32 sunhv_readl(const volatile void *pa);
+void sunhv_writel(u32 l, const volatile void *pa);
+u64 sunhv_readq(const volatile void *pa);
+void sunhv_writeq(u64 l, const volatile void *pa);
 #endif
 
 /* vintr_get_cookie()

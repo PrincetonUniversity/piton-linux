@@ -110,8 +110,8 @@
 #define xemaclite_readl		sunhv_readl
 #define xemaclite_writel	sunhv_writel
 #else
-#define xemaclite_readl		ioread32
-#define xemaclite_writel	iowrite32
+#define xemaclite_readl		sunhv_readl
+#define xemaclite_writel	sunhv_writel
 #endif
 
 /**
