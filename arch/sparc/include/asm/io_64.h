@@ -5,6 +5,7 @@
 #include <linux/kernel.h>
 #include <linux/compiler.h>
 #include <linux/types.h>
+#include <asm/hypervisor.h>
 
 #include <asm/page.h>      /* IO address mapping routines need this */
 #include <asm/asi.h>
@@ -282,42 +283,42 @@ static inline void iowrite32_rep(void __iomem *port, const void *buf, unsigned l
  */
 static inline u8 sbus_readb(const volatile void __iomem *addr)
 {
-	return __raw_readb(addr);
+	return sunhv_readb(addr);
 }
 
 static inline u16 sbus_readw(const volatile void __iomem *addr)
 {
-	return __raw_readw(addr);
+	return sunhv_readw(addr);
 }
 
 static inline u32 sbus_readl(const volatile void __iomem *addr)
 {
-	return __raw_readl(addr);
+	return sunhv_readl(addr);
 }
 
 static inline u64 sbus_readq(const volatile void __iomem *addr)
 {
-	return __raw_readq(addr);
+	return sunhv_readq(addr);
 }
 
 static inline void sbus_writeb(u8 b, volatile void __iomem *addr)
 {
-	__raw_writeb(b, addr);
+	sunhv_writeb(b, addr);
 }
 
 static inline void sbus_writew(u16 w, volatile void __iomem *addr)
 {
-	__raw_writew(w, addr);
+	sunhv_writew(w, addr);
 }
 
 static inline void sbus_writel(u32 l, volatile void __iomem *addr)
 {
-	__raw_writel(l, addr);
+	sunhv_writel(l, addr);
 }
 
 static inline void sbus_writeq(u64 q, volatile void __iomem *addr)
 {
-	__raw_writeq(q, addr);
+	sunhv_writeq(q, addr);
 }
 
 static inline void sbus_memset_io(volatile void __iomem *dst, int c, __kernel_size_t n)
