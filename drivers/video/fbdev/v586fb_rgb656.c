@@ -24,7 +24,7 @@
 #include <linux/module.h>
 #include <asm/pgtable.h>
 
-#define v586_PHYS_SCREEN_ADDR 0xfffffffff0e00000
+#define v586_PHYS_SCREEN_ADDR 0xfff0e00000
 #define v586_PHYS_SCREEN_SIZE 0x00100000
 /* static void *videomemory; */
 static u_long videomemorysize = v586_PHYS_SCREEN_SIZE;
@@ -75,16 +75,16 @@ static int v586fb_probe(struct platform_device *dev)
 
     fb_info(info, "Starting v586fb frame buffer driver probe\n");
 
-	//if (!request_mem_region(v586_PHYS_SCREEN_ADDR, v586_PHYS_SCREEN_SIZE,	"v586fb")) {
-	//	printk(KERN_INFO"v586fb: cannot get framebuffer\n");
-	//}
+	if (!request_mem_region(v586_PHYS_SCREEN_ADDR, v586_PHYS_SCREEN_SIZE,	"v586fb")) {
+		printk(KERN_INFO"v586fb: cannot get framebuffer\n");
+	}
 
 	info->var = v586fb_var;
 	info->fix = v586fb_fix;
 	info->fbops = &v586fb_ops;
 	info->flags = FBINFO_DEFAULT;  /* not as module for now */
 	info->par = NULL;
-	info->screen_base = v586_PHYS_SCREEN_ADDR; //ioremap(v586_PHYS_SCREEN_ADDR,videomemorysize); /* (char *) v586fb_fix.smem_start; */
+	info->screen_base = ioremap(v586_PHYS_SCREEN_ADDR,videomemorysize); /* (char *) v586fb_fix.smem_start; */
 
     fb_info(info, "Initialised fb_info struct\n");
 
