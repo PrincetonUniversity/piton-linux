@@ -903,6 +903,7 @@ asmlinkage long sys_pkey_mprotect(unsigned long start, size_t len,
 asmlinkage long sys_pkey_alloc(unsigned long flags, unsigned long init_val);
 asmlinkage long sys_pkey_free(int pkey);
 
-asmlinkage long sys_pico_start(uint32_t __user * mem);
+asmlinkage long sys_pico_start(uint32_t __user * mem, int mem_len);
+asmlinkage long sys_pico_setup(int mem_len);
 
 #endif
