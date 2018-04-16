@@ -33,3 +33,5 @@ obj-$(CONFIG_HYPERV_KEYBOARD)	+= hyperv-keyboard.o
 obj-$(CONFIG_SERIO_SUN4I_PS2)	+= sun4i-ps2.o
 obj-$(CONFIG_SERIO_GPIO_PS2)	+= ps2-gpio.o
 obj-$(CONFIG_USERIO)		+= userio.o
+
+obj-$(CONFIG_SERIO_PITON_PS2)	+= piton_ps2.o
