@@ -86,6 +86,8 @@ static int v586fb_probe(struct platform_device *dev)
 	info->par = NULL;
 	info->screen_base = ioremap(v586_PHYS_SCREEN_ADDR,videomemorysize); /* (char *) v586fb_fix.smem_start; */
 
+        info->pseudo_palette = kzalloc(256*4, GFP_KERNEL);
+
     fb_info(info, "Initialised fb_info struct\n");
 
 	if (fb_alloc_cmap(&info->cmap, 256, 0) < 0) {
