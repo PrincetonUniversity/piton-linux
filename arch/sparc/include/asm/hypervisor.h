@@ -1576,7 +1576,7 @@ unsigned long sun4v_intr_settarget(unsigned long sysino, unsigned long cpuid);
 #define SUNHV_BYTE_WRITE      0xf5
 #define HV_PICO_START 0xf6
 #ifndef __ASSEMBLY__
-unsigned long hcall_pico_start(unsigned long pa);
+unsigned long hcall_pico_start(u32 pa);
 unsigned long sunhv_net_read(void *pa);
 unsigned long sunhv_net_write(u32 l, void *pa);
 unsigned long sunhv_byte_read(void *pa);

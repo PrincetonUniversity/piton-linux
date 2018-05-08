@@ -427,8 +427,9 @@
 #define __NR_pwritev2		359
 #define __NR_pico_start     360
 #define __NR_pico_setup     361
+#define __NR_pico_clear_syscall 362
 
-#define NR_syscalls		362
+#define NR_syscalls		363
 
 /* Bitmask values returned from kern_features system call.  */
 #define KERN_FEATURE_MIXED_MODE_STACK	0x00000001
