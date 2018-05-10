@@ -942,4 +942,5 @@ asmlinkage long sys_statx(int dfd, const char __user *path, unsigned flags,
 			  unsigned mask, struct statx __user *buffer);
 
 asmlinkage long sys_bpr_reset(unsigned long br_pred_start);
+asmlinkage long sys_bpr_read_stats(unsigned long __user* br_pred_stats);
 #endif

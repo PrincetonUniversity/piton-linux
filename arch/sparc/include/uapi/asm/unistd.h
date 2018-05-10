@@ -428,8 +428,9 @@
 #define __NR_pwritev2		359
 #define __NR_statx		360
 #define __NR_bpr_reset  361
+#define __NR_bpr_read_stats 362
 
-#define NR_syscalls		362
+#define NR_syscalls		363
 
 /* Bitmask values returned from kern_features system call.  */
 #define KERN_FEATURE_MIXED_MODE_STACK	0x00000001
