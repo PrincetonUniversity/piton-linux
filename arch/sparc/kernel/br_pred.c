@@ -27,6 +27,5 @@ SYSCALL_DEFINE1(bpr_read_stats, unsigned long __user *, br_pred_stats) {
 
     copy_to_user(br_pred_stats, &num_right, sizeof(unsigned long));
     copy_to_user(br_pred_stats + 1, & num_wrong, sizeof(unsigned long));
-    printk("Right: %ld, wrong: %ld\n", num_right, num_wrong);
     return 0;
 }
