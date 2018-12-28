@@ -368,6 +368,11 @@ void sun4v_data_access_exception(struct pt_regs *regs, unsigned long addr, unsig
 		       0, 0x8, SIGTRAP) == NOTIFY_STOP)
 		return;
 
+         printk("sun4v_data_access_exception: ADDR[%016lx] "
+		       "CTX[%04x] TYPE[%04x], going.\n",
+		       addr, ctx, type);
+
+
 	if (regs->tstate & TSTATE_PRIV) {
 		/* Test if this comes from uaccess places. */
 		const struct exception_table_entry *entry;
