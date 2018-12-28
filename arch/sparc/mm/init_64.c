@@ -188,6 +188,7 @@ unsigned long sparc64_kern_pri_nuc_bits __read_mostly;
 unsigned long sparc64_kern_sec_context __read_mostly;
 
 int num_kernel_image_mappings;
+int num_io_image_mappings;
 
 #ifdef CONFIG_DEBUG_DCFLUSH
 atomic_t dcpage_flushes = ATOMIC_INIT(0);
@@ -587,6 +588,7 @@ struct linux_prom_translation prom_trans[512] __read_mostly;
 unsigned int prom_trans_ents __read_mostly;
 
 unsigned long kern_locked_tte_data;
+unsigned long io_locked_tte_data;
 
 /* The obp translations are saved based on 8k pagesize, since obp can
  * use a mixture of pagesizes. Misses to the LOW_OBP_ADDRESS ->
@@ -710,6 +712,11 @@ static void __init remap_kernel(void)
 			tte_vaddr += 0x400000;
 			tte_data += 0x400000;
 		}
+		//tte_vaddr = 0xfffffffff0c00000;
+		//phys_page = (0xfff0c00000 >> ILOG2_4MB) << ILOG2_4MB;
+		//tte_data = (_PAGE_VALID | _PAGE_SZ4MB_4V | _PAGE_P_4V | _PAGE_W_4V | _PAGE_E_4V | phys_page);
+		//io_locked_tte_data = tte_data;
+		//hypervisor_tlb_lock(tte_vaddr, tte_data, HV_MMU_DMMU);
 	} else {
 		for (i = 0; i < num_kernel_image_mappings; i++) {
 			prom_dtlb_load(tlb_ent - i, tte_data, tte_vaddr);
@@ -2316,6 +2323,7 @@ void __init paging_init(void)
 {
 	unsigned long end_pfn, shift, phys_base;
 	unsigned long real_end, i;
+    u8 *uart_base;
 
 	setup_page_offset();
 
@@ -2425,6 +2433,9 @@ void __init paging_init(void)
 	num_kernel_image_mappings = DIV_ROUND_UP(real_end - KERNBASE, 1 << ILOG2_4MB);
 	printk("Kernel: Using %d locked TLB entries for main kernel image.\n",
 	       num_kernel_image_mappings);
+	//num_io_image_mappings = 1;
+	//printk("Kernel: Using %d locked TLB entries for I/O access.\n",
+	//       num_io_image_mappings);
 
 	/* Set kernel pgd to upper alias so physical page computations
 	 * work.
@@ -2435,6 +2446,15 @@ void __init paging_init(void)
 
 	inherit_prom_mappings();
 	
+	uart_base = (u8*) 0xfff0c2c000;
+    //*uart_base = 'z';
+
+	//printk("Kernel: I/O bypass test writing to %p succeeded.\n", uart_base);
+
+    __raw_writeb('z', (void __iomem *) uart_base);
+
+	printk("Kernel: ASI_REAL_IO test writing to %p succeeded.\n", uart_base);
+
 	/* Ok, we can use our TLB miss and window trap handlers safely.  */
 	setup_tba();
 

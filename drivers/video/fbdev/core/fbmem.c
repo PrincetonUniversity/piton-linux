@@ -1640,14 +1640,20 @@ static int do_register_framebuffer(struct fb_info *fb_info)
 	struct fb_event event;
 	struct fb_videomode mode;
 
+    fb_info(fb_info, "Called do_register_framebuffer()\n");
+
 	if (fb_check_foreignness(fb_info))
 		return -ENOSYS;
+
+    fb_info(fb_info, "Checked foreignness\n");
 
 	ret = do_remove_conflicting_framebuffers(fb_info->apertures,
 						 fb_info->fix.id,
 						 fb_is_primary_device(fb_info));
 	if (ret)
 		return ret;
+
+    fb_info(fb_info, "Removed conflicting framebuffers\n");
 
 	if (num_registered_fb == FB_MAX)
 		return -ENXIO;
@@ -1661,14 +1667,21 @@ static int do_register_framebuffer(struct fb_info *fb_info)
 	mutex_init(&fb_info->lock);
 	mutex_init(&fb_info->mm_lock);
 
+    fb_info(fb_info, "Did some mutexy stuff\n");
+
 	fb_info->dev = device_create(fb_class, fb_info->device,
 				     MKDEV(FB_MAJOR, i), NULL, "fb%d", i);
+
+    fb_info(fb_info, "Called device_create()\n");
+
 	if (IS_ERR(fb_info->dev)) {
 		/* Not fatal */
 		printk(KERN_WARNING "Unable to create device for framebuffer %d; errno = %ld\n", i, PTR_ERR(fb_info->dev));
 		fb_info->dev = NULL;
 	} else
 		fb_init_device(fb_info);
+
+    fb_info(fb_info, "Called fb_init_device()\n");
 
 	if (fb_info->pixmap.addr == NULL) {
 		fb_info->pixmap.addr = kmalloc(FBPIXMAPSIZE, GFP_KERNEL);
@@ -1688,21 +1701,36 @@ static int do_register_framebuffer(struct fb_info *fb_info)
 	if (!fb_info->pixmap.blit_y)
 		fb_info->pixmap.blit_y = ~(u32)0;
 
+    fb_info(fb_info, "Did some stuff with pixmaps\n");
+
 	if (!fb_info->modelist.prev || !fb_info->modelist.next)
 		INIT_LIST_HEAD(&fb_info->modelist);
+
+    fb_info(fb_info, "Called INIT_LIST_HEAD()\n");
 
 	if (fb_info->skip_vt_switch)
 		pm_vt_switch_required(fb_info->dev, false);
 	else
 		pm_vt_switch_required(fb_info->dev, true);
 
+    fb_info(fb_info, "Called pm_vt_switch_required()\n");
+
 	fb_var_to_videomode(&mode, &fb_info->var);
+
+    fb_info(fb_info, "Called fb_var_to_videomode()\n");
+
 	fb_add_videomode(&mode, &fb_info->modelist);
+
+    fb_info(fb_info, "Called fb_add_videomode()\n");
+
 	registered_fb[i] = fb_info;
 
 	event.info = fb_info;
 	if (!lockless_register_fb)
 		console_lock();
+
+    //fb_info(fb_info, "Called console_lock() (maybe)\n");
+
 	if (!lock_fb_info(fb_info)) {
 		if (!lockless_register_fb)
 			console_unlock();
@@ -1710,9 +1738,16 @@ static int do_register_framebuffer(struct fb_info *fb_info)
 	}
 
 	fb_notifier_call_chain(FB_EVENT_FB_REGISTERED, &event);
-	unlock_fb_info(fb_info);
+
+    //fb_info(fb_info, "Called fb_notifier_call_chain()\n");
+	
+    unlock_fb_info(fb_info);
+    //fb_info(fb_info, "Called unlock_fb_info()\n");
+
 	if (!lockless_register_fb)
 		console_unlock();
+
+    fb_info(fb_info, "Finishing do_register_framebuffer()\n");
 	return 0;
 }
 
@@ -1801,6 +1836,7 @@ int
 register_framebuffer(struct fb_info *fb_info)
 {
 	int ret;
+    fb_info(fb_info, "Called register_framebuffer()\n");
 
 	mutex_lock(&registration_lock);
 	ret = do_register_framebuffer(fb_info);
