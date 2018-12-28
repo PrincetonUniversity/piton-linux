@@ -26,6 +26,7 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
+#include <linux/printk.h>
 
 #include <asm/oplib.h>
 #include <asm/hypervisor.h>
@@ -68,10 +69,10 @@ static struct piton_ps2_data *ps2_data;
 
 static void piton_ps2_poll(unsigned long data)
 {
-        struct piton_ps2_data *drvdata = ps2_data;
-        u8 flag;
-        u8 c;
-        int status;
+    struct piton_ps2_data *drvdata = ps2_data;
+    u8 flag;
+    u8 c;
+    //int status;
 
     flag = piton_ps2_readb(drvdata->base_address);
 
@@ -85,6 +86,8 @@ static void piton_ps2_poll(unsigned long data)
         drvdata->flags = 1;  // TODO: figure out what is the flag for
         serio_interrupt(drvdata->serio, c, drvdata->flags);
                 drvdata->flags = 0;
+
+        printk("Received a scancode: %x\n", c);
     }
 
     mod_timer(&piton_ps2_timer, jiffies + piton_ps2_polling_period);
@@ -159,10 +162,10 @@ static int piton_ps2_of_probe(struct platform_device *ofdev)
 
         /* Get IRQ for the device */
         irq = irq_of_parse_and_map(dev->of_node, 0);
-        if (!irq) {
+        /*if (!irq) {
                 dev_err(dev, "no IRQ found\n");
                 return -ENODEV;
-        }
+        }*/
 
         drvdata = kzalloc(sizeof(struct piton_ps2_data), GFP_KERNEL);
         ps2_data = drvdata;
@@ -197,6 +200,9 @@ static int piton_ps2_of_probe(struct platform_device *ofdev)
                 goto failed2;
         }
 
+        dev_info(dev, "Xilinx PS2 at 0x%08llX mapped to 0x%p, irq=%d\n",
+		 (unsigned long long)phys_addr, drvdata->base_address,
+		 drvdata->irq);
 
         serio->id.type = SERIO_8042;    
         serio->write = NULL;  // don't allow to write

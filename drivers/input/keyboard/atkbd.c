@@ -28,6 +28,7 @@
 #include <linux/libps2.h>
 #include <linux/mutex.h>
 #include <linux/dmi.h>
+#include <linux/printk.h>
 
 #define DRIVER_DESC	"AT and PS/2 keyboard driver"
 
@@ -379,6 +380,8 @@ static irqreturn_t atkbd_interrupt(struct serio *serio, unsigned char data,
 	int value;
 	unsigned short keycode;
 
+        printk("From atkbd irq_handler: serio %s received data: %02x \n", serio->name, data);
+
 	dev_dbg(&serio->dev, "Received %02x flags %02x\n", data, flags);
 
 #if !defined(__i386__) && !defined (__x86_64__)
@@ -691,6 +694,7 @@ static int atkbd_activate(struct atkbd *atkbd)
 /*
  * Enable the keyboard to receive keystrokes.
  */
+        printk("Atkbd activated!\n");
 
 	if (ps2_command(ps2dev, NULL, ATKBD_CMD_ENABLE)) {
 		dev_err(&ps2dev->serio->dev,
@@ -732,6 +736,8 @@ static int atkbd_probe(struct atkbd *atkbd)
  * these systems the BIOS also usually doesn't do it for us.
  */
 
+        printk("atkbd is probing: the serio is %s \n", ps2dev->serio->name);
+        
 	if (atkbd_reset)
 		if (ps2_command(ps2dev, NULL, ATKBD_CMD_RESET_BAT))
 			dev_warn(&ps2dev->serio->dev,
@@ -1135,6 +1141,8 @@ static int atkbd_connect(struct serio *serio, struct serio_driver *drv)
 	struct atkbd *atkbd;
 	struct input_dev *dev;
 	int err = -ENOMEM;
+
+        printk("Atkbd started to connect to serio %s \n", serio->name);
 
 	atkbd = kzalloc(sizeof(struct atkbd), GFP_KERNEL);
 	dev = input_allocate_device();
