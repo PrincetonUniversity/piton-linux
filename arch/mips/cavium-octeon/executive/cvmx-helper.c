@@ -67,7 +67,7 @@ void (*cvmx_override_pko_queue_priority) (int pko_port,
 void (*cvmx_override_ipd_port_setup) (int ipd_port);
 
 /* Port count per interface */
-static int interface_port_count[5];
+static int interface_port_count[9];
 
 /**
  * Return the number of interfaces the chip has. Each interface
@@ -862,7 +862,7 @@ int __cvmx_helper_errata_fix_ipd_ptr_alignment(void)
 	 */
 	cvmx_write_csr(CVMX_ASXX_RX_PRT_EN(INTERFACE(FIX_IPD_OUTPORT)), 0);
 
-	cvmx_wait(100000000ull);
+	__delay(100000000ull);
 
 	for (retry_loop_cnt = 0; retry_loop_cnt < 10; retry_loop_cnt++) {
 		retry_cnt = 100000;

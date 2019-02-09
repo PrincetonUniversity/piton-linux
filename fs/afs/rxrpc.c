@@ -16,14 +16,12 @@
 #include <net/af_rxrpc.h>
 #include "internal.h"
 #include "afs_cm.h"
+#include "protocol_yfs.h"
 
-struct socket *afs_socket; /* my RxRPC socket */
-static struct workqueue_struct *afs_async_calls;
-static struct afs_call *afs_spare_incoming_call;
-atomic_t afs_outstanding_calls;
+struct workqueue_struct *afs_async_calls;
 
 static void afs_wake_up_call_waiter(struct sock *, struct rxrpc_call *, unsigned long);
-static int afs_wait_for_call_to_complete(struct afs_call *);
+static long afs_wait_for_call_to_complete(struct afs_call *, struct afs_addr_cursor *);
 static void afs_wake_up_async_call(struct sock *, struct rxrpc_call *, unsigned long);
 static void afs_process_async_call(struct work_struct *);
 static void afs_rx_new_call(struct sock *, struct rxrpc_call *, unsigned long);
@@ -34,55 +32,61 @@ static int afs_deliver_cm_op_id(struct afs_call *);
 static const struct afs_call_type afs_RXCMxxxx = {
 	.name		= "CB.xxxx",
 	.deliver	= afs_deliver_cm_op_id,
-	.abort_to_error	= afs_abort_to_error,
 };
-
-static void afs_charge_preallocation(struct work_struct *);
-
-static DECLARE_WORK(afs_charge_preallocation_work, afs_charge_preallocation);
-
-static int afs_wait_atomic_t(atomic_t *p)
-{
-	schedule();
-	return 0;
-}
 
 /*
  * open an RxRPC socket and bind it to be a server for callback notifications
  * - the socket is left in blocking mode and non-blocking ops use MSG_DONTWAIT
  */
-int afs_open_socket(void)
+int afs_open_socket(struct afs_net *net)
 {
 	struct sockaddr_rxrpc srx;
 	struct socket *socket;
+	unsigned int min_level;
 	int ret;
 
 	_enter("");
 
-	ret = -ENOMEM;
-	afs_async_calls = alloc_workqueue("kafsd", WQ_MEM_RECLAIM, 0);
-	if (!afs_async_calls)
-		goto error_0;
-
-	ret = sock_create_kern(&init_net, AF_RXRPC, SOCK_DGRAM, PF_INET, &socket);
+	ret = sock_create_kern(net->net, AF_RXRPC, SOCK_DGRAM, PF_INET6, &socket);
 	if (ret < 0)
 		goto error_1;
 
 	socket->sk->sk_allocation = GFP_NOFS;
 
 	/* bind the callback manager's address to make this a server socket */
+	memset(&srx, 0, sizeof(srx));
 	srx.srx_family			= AF_RXRPC;
 	srx.srx_service			= CM_SERVICE;
 	srx.transport_type		= SOCK_DGRAM;
-	srx.transport_len		= sizeof(srx.transport.sin);
-	srx.transport.sin.sin_family	= AF_INET;
-	srx.transport.sin.sin_port	= htons(AFS_CM_PORT);
-	memset(&srx.transport.sin.sin_addr, 0,
-	       sizeof(srx.transport.sin.sin_addr));
+	srx.transport_len		= sizeof(srx.transport.sin6);
+	srx.transport.sin6.sin6_family	= AF_INET6;
+	srx.transport.sin6.sin6_port	= htons(AFS_CM_PORT);
 
+	min_level = RXRPC_SECURITY_ENCRYPT;
+	ret = kernel_setsockopt(socket, SOL_RXRPC, RXRPC_MIN_SECURITY_LEVEL,
+				(void *)&min_level, sizeof(min_level));
+	if (ret < 0)
+		goto error_2;
+
+	ret = kernel_bind(socket, (struct sockaddr *) &srx, sizeof(srx));
+	if (ret == -EADDRINUSE) {
+		srx.transport.sin6.sin6_port = 0;
+		ret = kernel_bind(socket, (struct sockaddr *) &srx, sizeof(srx));
+	}
+	if (ret < 0)
+		goto error_2;
+
+	srx.srx_service = YFS_CM_SERVICE;
 	ret = kernel_bind(socket, (struct sockaddr *) &srx, sizeof(srx));
 	if (ret < 0)
 		goto error_2;
+
+	/* Ideally, we'd turn on service upgrade here, but we can't because
+	 * OpenAFS is buggy and leaks the userStatus field from packet to
+	 * packet and between FS packets and CB packets - so if we try to do an
+	 * upgrade on an FS packet, OpenAFS will leak that into the CB packet
+	 * it sends back to us.
+	 */
 
 	rxrpc_kernel_new_call_notification(socket, afs_rx_new_call,
 					   afs_rx_discard_new_call);
@@ -91,16 +95,14 @@ int afs_open_socket(void)
 	if (ret < 0)
 		goto error_2;
 
-	afs_socket = socket;
-	afs_charge_preallocation(NULL);
+	net->socket = socket;
+	afs_charge_preallocation(&net->charge_preallocation_work);
 	_leave(" = 0");
 	return 0;
 
 error_2:
 	sock_release(socket);
 error_1:
-	destroy_workqueue(afs_async_calls);
-error_0:
 	_leave(" = %d", ret);
 	return ret;
 }
@@ -108,36 +110,36 @@ error_0:
 /*
  * close the RxRPC socket AFS was using
  */
-void afs_close_socket(void)
+void afs_close_socket(struct afs_net *net)
 {
 	_enter("");
 
-	kernel_listen(afs_socket, 0);
+	kernel_listen(net->socket, 0);
 	flush_workqueue(afs_async_calls);
 
-	if (afs_spare_incoming_call) {
-		afs_put_call(afs_spare_incoming_call);
-		afs_spare_incoming_call = NULL;
+	if (net->spare_incoming_call) {
+		afs_put_call(net->spare_incoming_call);
+		net->spare_incoming_call = NULL;
 	}
 
-	_debug("outstanding %u", atomic_read(&afs_outstanding_calls));
-	wait_on_atomic_t(&afs_outstanding_calls, afs_wait_atomic_t,
-			 TASK_UNINTERRUPTIBLE);
+	_debug("outstanding %u", atomic_read(&net->nr_outstanding_calls));
+	wait_var_event(&net->nr_outstanding_calls,
+		       !atomic_read(&net->nr_outstanding_calls));
 	_debug("no outstanding calls");
 
-	kernel_sock_shutdown(afs_socket, SHUT_RDWR);
+	kernel_sock_shutdown(net->socket, SHUT_RDWR);
 	flush_workqueue(afs_async_calls);
-	sock_release(afs_socket);
+	sock_release(net->socket);
 
 	_debug("dework");
-	destroy_workqueue(afs_async_calls);
 	_leave("");
 }
 
 /*
  * Allocate a call.
  */
-static struct afs_call *afs_alloc_call(const struct afs_call_type *type,
+static struct afs_call *afs_alloc_call(struct afs_net *net,
+				       const struct afs_call_type *type,
 				       gfp_t gfp)
 {
 	struct afs_call *call;
@@ -148,11 +150,15 @@ static struct afs_call *afs_alloc_call(const struct afs_call_type *type,
 		return NULL;
 
 	call->type = type;
+	call->net = net;
+	call->debug_id = atomic_inc_return(&rxrpc_debug_id);
 	atomic_set(&call->usage, 1);
 	INIT_WORK(&call->async_work, afs_process_async_call);
 	init_waitqueue_head(&call->waitq);
+	spin_lock_init(&call->state_lock);
+	call->_iter = &call->iter;
 
-	o = atomic_inc_return(&afs_outstanding_calls);
+	o = atomic_inc_return(&net->nr_outstanding_calls);
 	trace_afs_call(call, afs_call_trace_alloc, 1, o,
 		       __builtin_return_address(0));
 	return call;
@@ -163,8 +169,9 @@ static struct afs_call *afs_alloc_call(const struct afs_call_type *type,
  */
 void afs_put_call(struct afs_call *call)
 {
+	struct afs_net *net = call->net;
 	int n = atomic_dec_return(&call->usage);
-	int o = atomic_read(&afs_outstanding_calls);
+	int o = atomic_read(&net->nr_outstanding_calls);
 
 	trace_afs_call(call, afs_call_trace_put, n + 1, o,
 		       __builtin_return_address(0));
@@ -175,50 +182,56 @@ void afs_put_call(struct afs_call *call)
 		ASSERT(call->type->name != NULL);
 
 		if (call->rxcall) {
-			rxrpc_kernel_end_call(afs_socket, call->rxcall);
+			rxrpc_kernel_end_call(net->socket, call->rxcall);
 			call->rxcall = NULL;
 		}
 		if (call->type->destructor)
 			call->type->destructor(call);
 
+		afs_put_server(call->net, call->cm_server);
+		afs_put_cb_interest(call->net, call->cbi);
+		afs_put_addrlist(call->alist);
 		kfree(call->request);
-		kfree(call);
 
-		o = atomic_dec_return(&afs_outstanding_calls);
 		trace_afs_call(call, afs_call_trace_free, 0, o,
 			       __builtin_return_address(0));
+		kfree(call);
+
+		o = atomic_dec_return(&net->nr_outstanding_calls);
 		if (o == 0)
-			wake_up_atomic_t(&afs_outstanding_calls);
+			wake_up_var(&net->nr_outstanding_calls);
 	}
 }
 
 /*
- * Queue the call for actual work.  Returns 0 unconditionally for convenience.
+ * Queue the call for actual work.
  */
-int afs_queue_call_work(struct afs_call *call)
+static void afs_queue_call_work(struct afs_call *call)
 {
-	int u = atomic_inc_return(&call->usage);
+	if (call->type->work) {
+		int u = atomic_inc_return(&call->usage);
 
-	trace_afs_call(call, afs_call_trace_work, u,
-		       atomic_read(&afs_outstanding_calls),
-		       __builtin_return_address(0));
+		trace_afs_call(call, afs_call_trace_work, u,
+			       atomic_read(&call->net->nr_outstanding_calls),
+			       __builtin_return_address(0));
 
-	INIT_WORK(&call->work, call->type->work);
+		INIT_WORK(&call->work, call->type->work);
 
-	if (!queue_work(afs_wq, &call->work))
-		afs_put_call(call);
-	return 0;
+		if (!queue_work(afs_wq, &call->work))
+			afs_put_call(call);
+	}
 }
 
 /*
  * allocate a call with flat request and reply buffers
  */
-struct afs_call *afs_alloc_flat_call(const struct afs_call_type *type,
+struct afs_call *afs_alloc_flat_call(struct afs_net *net,
+				     const struct afs_call_type *type,
 				     size_t request_size, size_t reply_max)
 {
 	struct afs_call *call;
 
-	call = afs_alloc_call(type, GFP_NOFS);
+	call = afs_alloc_call(net, type, GFP_NOFS);
 	if (!call)
 		goto nomem_call;
 
@@ -236,6 +249,8 @@ struct afs_call *afs_alloc_flat_call(const struct afs_call_type *type,
 			goto nomem_free;
 	}
 
+	afs_extract_to_buf(call, call->reply_max);
+	call->operation_ID = type->op;
 	init_waitqueue_head(&call->waitq);
 	return call;
 
@@ -288,7 +303,7 @@ static void afs_load_bvec(struct afs_call *call, struct msghdr *msg,
 		offset = 0;
 	}
 
-	iov_iter_bvec(&msg->msg_iter, WRITE | ITER_BVEC, bv, nr, bytes);
+	iov_iter_bvec(&msg->msg_iter, WRITE, bv, nr, bytes);
 }
 
 /*
@@ -300,8 +315,7 @@ static void afs_notify_end_request_tx(struct sock *sock,
 {
 	struct afs_call *call = (struct afs_call *)call_user_ID;
 
-	if (call->state == AFS_CALL_REQUESTING)
-		call->state = AFS_CALL_AWAIT_REPLY;
+	afs_set_call_state(call, AFS_CALL_CL_REQUESTING, AFS_CALL_CL_AWAIT_REPLY);
 }
 
 /*
@@ -319,11 +333,13 @@ static int afs_send_pages(struct afs_call *call, struct msghdr *msg)
 
 	do {
 		afs_load_bvec(call, msg, bv, first, last, offset);
+		trace_afs_send_pages(call, msg, first, last, offset);
+
 		offset = 0;
 		bytes = msg->msg_iter.count;
 		nr = msg->msg_iter.nr_segs;
 
-		ret = rxrpc_kernel_send_data(afs_socket, call->rxcall, msg,
+		ret = rxrpc_kernel_send_data(call->net->socket, call->rxcall, msg,
 					     bytes, afs_notify_end_request_tx);
 		for (loop = 0; loop < nr; loop++)
 			put_page(bv[loop].bv_page);
@@ -333,43 +349,35 @@ static int afs_send_pages(struct afs_call *call, struct msghdr *msg)
 		first += nr;
 	} while (first <= last);
 
+	trace_afs_sent_pages(call, call->first, last, first, ret);
 	return ret;
 }
 
 /*
  * initiate a call
  */
-int afs_make_call(struct in_addr *addr, struct afs_call *call, gfp_t gfp,
-		  bool async)
+long afs_make_call(struct afs_addr_cursor *ac, struct afs_call *call,
+		   gfp_t gfp, bool async)
 {
-	struct sockaddr_rxrpc srx;
+	struct sockaddr_rxrpc *srx = &ac->alist->addrs[ac->index];
 	struct rxrpc_call *rxcall;
 	struct msghdr msg;
 	struct kvec iov[1];
-	size_t offset;
 	s64 tx_total_len;
-	u32 abort_code;
 	int ret;
 
-	_enter("%x,{%d},", addr->s_addr, ntohs(call->port));
+	_enter(",{%pISp},", &srx->transport);
 
 	ASSERT(call->type != NULL);
 	ASSERT(call->type->name != NULL);
 
 	_debug("____MAKE %p{%s,%x} [%d]____",
 	       call, call->type->name, key_serial(call->key),
-	       atomic_read(&afs_outstanding_calls));
+	       atomic_read(&call->net->nr_outstanding_calls));
 
 	call->async = async;
-
-	memset(&srx, 0, sizeof(srx));
-	srx.srx_family = AF_RXRPC;
-	srx.srx_service = call->service_id;
-	srx.transport_type = SOCK_DGRAM;
-	srx.transport_len = sizeof(srx.transport.sin);
-	srx.transport.sin.sin_family = AF_INET;
-	srx.transport.sin.sin_port = call->port;
-	memcpy(&srx.transport.sin.sin_addr, addr, 4);
+	call->addr_ix = ac->index;
+	call->alist = afs_get_addrlist(ac->alist);
 
 	/* Work out the length we're going to transmit.  This is awkward for
 	 * calls such as FS.StoreData where there's an extra injection of data
@@ -377,20 +385,31 @@ int afs_make_call(struct in_addr *addr, struct afs_call *call, gfp_t gfp,
 	 */
 	tx_total_len = call->request_size;
 	if (call->send_pages) {
-		tx_total_len += call->last_to - call->first_offset;
-		tx_total_len += (call->last - call->first) * PAGE_SIZE;
+		if (call->last == call->first) {
+			tx_total_len += call->last_to - call->first_offset;
+		} else {
+			/* It looks mathematically like you should be able to
+			 * combine the following lines with the ones above, but
+			 * unsigned arithmetic is fun when it wraps...
+			 */
+			tx_total_len += PAGE_SIZE - call->first_offset;
+			tx_total_len += call->last_to;
+			tx_total_len += (call->last - call->first - 1) * PAGE_SIZE;
+		}
 	}
 
 	/* create a call */
-	rxcall = rxrpc_kernel_begin_call(afs_socket, &srx, call->key,
+	rxcall = rxrpc_kernel_begin_call(call->net->socket, srx, call->key,
 					 (unsigned long)call,
 					 tx_total_len, gfp,
 					 (async ?
 					  afs_wake_up_async_call :
-					  afs_wake_up_call_waiter));
-	call->key = NULL;
+					  afs_wake_up_call_waiter),
+					 call->upgrade,
+					 call->debug_id);
 	if (IS_ERR(rxcall)) {
 		ret = PTR_ERR(rxcall);
+		call->error = ret;
 		goto error_kill_call;
 	}
 
@@ -402,20 +421,12 @@ int afs_make_call(struct in_addr *addr, struct afs_call *call, gfp_t gfp,
 
 	msg.msg_name		= NULL;
 	msg.msg_namelen		= 0;
-	iov_iter_kvec(&msg.msg_iter, WRITE | ITER_KVEC, iov, 1,
-		      call->request_size);
+	iov_iter_kvec(&msg.msg_iter, WRITE, iov, 1, call->request_size);
 	msg.msg_control		= NULL;
 	msg.msg_controllen	= 0;
-	msg.msg_flags		= (call->send_pages ? MSG_MORE : 0);
+	msg.msg_flags		= MSG_WAITALL | (call->send_pages ? MSG_MORE : 0);
 
-	/* We have to change the state *before* sending the last packet as
-	 * rxrpc might give us the reply before it returns from sending the
-	 * request.  Further, if the send fails, we may already have been given
-	 * a notification and may have collected it.
-	 */
-	if (!call->send_pages)
-		call->state = AFS_CALL_AWAIT_REPLY;
-	ret = rxrpc_kernel_send_data(afs_socket, rxcall,
+	ret = rxrpc_kernel_send_data(call->net->socket, rxcall,
 				     &msg, call->request_size,
 				     afs_notify_end_request_tx);
 	if (ret < 0)
@@ -432,22 +443,28 @@ int afs_make_call(struct in_addr *addr, struct afs_call *call, gfp_t gfp,
 	if (call->async)
 		return -EINPROGRESS;
 
-	return afs_wait_for_call_to_complete(call);
+	return afs_wait_for_call_to_complete(call, ac);
 
 error_do_abort:
 	call->state = AFS_CALL_COMPLETE;
 	if (ret != -ECONNABORTED) {
-		rxrpc_kernel_abort_call(afs_socket, rxcall, RX_USER_ABORT,
-					ret, "KSD");
+		rxrpc_kernel_abort_call(call->net->socket, rxcall,
+					RX_USER_ABORT, ret, "KSD");
 	} else {
-		abort_code = 0;
-		offset = 0;
-		rxrpc_kernel_recv_data(afs_socket, rxcall, NULL, 0, &offset,
-				       false, &abort_code);
-		ret = call->type->abort_to_error(abort_code);
+		iov_iter_kvec(&msg.msg_iter, READ, NULL, 0, 0);
+		rxrpc_kernel_recv_data(call->net->socket, rxcall,
+				       &msg.msg_iter, false,
+				       &call->abort_code, &call->service_id);
+		ac->abort_code = call->abort_code;
+		ac->responded = true;
 	}
+	call->error = ret;
+	trace_afs_call_done(call);
 error_kill_call:
+	if (call->type->done)
+		call->type->done(call);
 	afs_put_call(call);
+	ac->error = ret;
 	_leave(" = %d", ret);
 	return ret;
 }
@@ -457,123 +474,193 @@ error_kill_call:
  */
 static void afs_deliver_to_call(struct afs_call *call)
 {
-	u32 abort_code;
+	enum afs_call_state state;
+	u32 abort_code, remote_abort = 0;
 	int ret;
 
 	_enter("%s", call->type->name);
 
-	while (call->state == AFS_CALL_AWAIT_REPLY ||
-	       call->state == AFS_CALL_AWAIT_OP_ID ||
-	       call->state == AFS_CALL_AWAIT_REQUEST ||
-	       call->state == AFS_CALL_AWAIT_ACK
+	while (state = READ_ONCE(call->state),
+	       state == AFS_CALL_CL_AWAIT_REPLY ||
+	       state == AFS_CALL_SV_AWAIT_OP_ID ||
+	       state == AFS_CALL_SV_AWAIT_REQUEST ||
+	       state == AFS_CALL_SV_AWAIT_ACK
 	       ) {
-		if (call->state == AFS_CALL_AWAIT_ACK) {
-			size_t offset = 0;
-			ret = rxrpc_kernel_recv_data(afs_socket, call->rxcall,
-						     NULL, 0, &offset, false,
-						     &call->abort_code);
-			trace_afs_recv_data(call, 0, offset, false, ret);
+		if (state == AFS_CALL_SV_AWAIT_ACK) {
+			iov_iter_kvec(&call->iter, READ, NULL, 0, 0);
+			ret = rxrpc_kernel_recv_data(call->net->socket,
+						     call->rxcall, &call->iter,
+						     false, &remote_abort,
+						     &call->service_id);
+			trace_afs_receive_data(call, &call->iter, false, ret);
 
 			if (ret == -EINPROGRESS || ret == -EAGAIN)
 				return;
-			if (ret == 1 || ret < 0) {
-				call->state = AFS_CALL_COMPLETE;
-				goto done;
+			if (ret < 0 || ret == 1) {
+				if (ret == 1)
+					ret = 0;
+				goto call_complete;
 			}
 			return;
 		}
 
+		if (call->want_reply_time &&
+		    rxrpc_kernel_get_reply_time(call->net->socket,
+						call->rxcall,
+						&call->reply_time))
+			call->want_reply_time = false;
+
 		ret = call->type->deliver(call);
+		state = READ_ONCE(call->state);
 		switch (ret) {
 		case 0:
-			if (call->state == AFS_CALL_AWAIT_REPLY)
-				call->state = AFS_CALL_COMPLETE;
+			afs_queue_call_work(call);
+			if (state == AFS_CALL_CL_PROC_REPLY) {
+				if (call->cbi)
+					set_bit(AFS_SERVER_FL_MAY_HAVE_CB,
+						&call->cbi->server->flags);
+				goto call_complete;
+			}
+			ASSERTCMP(state, >, AFS_CALL_CL_PROC_REPLY);
 			goto done;
 		case -EINPROGRESS:
 		case -EAGAIN:
 			goto out;
 		case -ECONNABORTED:
-			goto call_complete;
-		case -ENOTCONN:
-			abort_code = RX_CALL_DEAD;
-			rxrpc_kernel_abort_call(afs_socket, call->rxcall,
-						abort_code, ret, "KNC");
-			goto save_error;
+			ASSERTCMP(state, ==, AFS_CALL_COMPLETE);
+			goto done;
 		case -ENOTSUPP:
 			abort_code = RXGEN_OPCODE;
-			rxrpc_kernel_abort_call(afs_socket, call->rxcall,
+			rxrpc_kernel_abort_call(call->net->socket, call->rxcall,
 						abort_code, ret, "KIV");
-			goto save_error;
+			goto local_abort;
+		case -EIO:
+			pr_err("kAFS: Call %u in bad state %u\n",
+			       call->debug_id, state);
+			/* Fall through */
 		case -ENODATA:
 		case -EBADMSG:
 		case -EMSGSIZE:
 		default:
 			abort_code = RXGEN_CC_UNMARSHAL;
-			if (call->state != AFS_CALL_AWAIT_REPLY)
+			if (state != AFS_CALL_CL_AWAIT_REPLY)
 				abort_code = RXGEN_SS_UNMARSHAL;
-			rxrpc_kernel_abort_call(afs_socket, call->rxcall,
-						abort_code, -EBADMSG, "KUM");
-			goto save_error;
+			rxrpc_kernel_abort_call(call->net->socket, call->rxcall,
+						abort_code, ret, "KUM");
+			goto local_abort;
 		}
 	}
 
 done:
-	if (call->state == AFS_CALL_COMPLETE && call->incoming)
+	if (call->type->done)
+		call->type->done(call);
+	if (state == AFS_CALL_COMPLETE && call->incoming)
 		afs_put_call(call);
 out:
 	_leave("");
 	return;
 
-save_error:
-	call->error = ret;
+local_abort:
+	abort_code = 0;
 call_complete:
-	call->state = AFS_CALL_COMPLETE;
+	afs_set_call_complete(call, ret, remote_abort);
+	state = AFS_CALL_COMPLETE;
 	goto done;
 }
 
 /*
  * wait synchronously for a call to complete
  */
-static int afs_wait_for_call_to_complete(struct afs_call *call)
+static long afs_wait_for_call_to_complete(struct afs_call *call,
+					  struct afs_addr_cursor *ac)
 {
-	int ret;
+	signed long rtt2, timeout;
+	long ret;
+	bool stalled = false;
+	u64 rtt;
+	u32 life, last_life;
 
 	DECLARE_WAITQUEUE(myself, current);
 
 	_enter("");
 
+	rtt = rxrpc_kernel_get_rtt(call->net->socket, call->rxcall);
+	rtt2 = nsecs_to_jiffies64(rtt) * 2;
+	if (rtt2 < 2)
+		rtt2 = 2;
+
+	timeout = rtt2;
+	last_life = rxrpc_kernel_check_life(call->net->socket, call->rxcall);
+
 	add_wait_queue(&call->waitq, &myself);
 	for (;;) {
-		set_current_state(TASK_INTERRUPTIBLE);
+		set_current_state(TASK_UNINTERRUPTIBLE);
 
 		/* deliver any messages that are in the queue */
-		if (call->state < AFS_CALL_COMPLETE && call->need_attention) {
+		if (!afs_check_call_state(call, AFS_CALL_COMPLETE) &&
+		    call->need_attention) {
 			call->need_attention = false;
 			__set_current_state(TASK_RUNNING);
 			afs_deliver_to_call(call);
 			continue;
 		}
 
-		if (call->state == AFS_CALL_COMPLETE ||
-		    signal_pending(current))
+		if (afs_check_call_state(call, AFS_CALL_COMPLETE))
 			break;
-		schedule();
+
+		life = rxrpc_kernel_check_life(call->net->socket, call->rxcall);
+		if (timeout == 0 &&
+		    life == last_life && signal_pending(current)) {
+			if (stalled)
+				break;
+			__set_current_state(TASK_RUNNING);
+			rxrpc_kernel_probe_life(call->net->socket, call->rxcall);
+			timeout = rtt2;
+			stalled = true;
+			continue;
+		}
+
+		if (life != last_life) {
+			timeout = rtt2;
+			last_life = life;
+			stalled = false;
+		}
+
+		timeout = schedule_timeout(timeout);
 	}
 
 	remove_wait_queue(&call->waitq, &myself);
 	__set_current_state(TASK_RUNNING);
 
 	/* Kill off the call if it's still live. */
-	if (call->state < AFS_CALL_COMPLETE) {
+	if (!afs_check_call_state(call, AFS_CALL_COMPLETE)) {
 		_debug("call interrupted");
-		rxrpc_kernel_abort_call(afs_socket, call->rxcall,
-					RX_USER_ABORT, -EINTR, "KWI");
+		if (rxrpc_kernel_abort_call(call->net->socket, call->rxcall,
+					    RX_USER_ABORT, -EINTR, "KWI"))
+			afs_set_call_complete(call, -EINTR, 0);
 	}
 
-	ret = call->error;
+	spin_lock_bh(&call->state_lock);
+	ac->abort_code = call->abort_code;
+	ac->error = call->error;
+	spin_unlock_bh(&call->state_lock);
+
+	ret = ac->error;
+	switch (ret) {
+	case 0:
+		if (call->ret_reply0) {
+			ret = (long)call->reply[0];
+			call->reply[0] = NULL;
+		}
+		/* Fall through */
+	case -ECONNABORTED:
+		ac->responded = true;
+		break;
+	}
+
 	_debug("call complete");
 	afs_put_call(call);
-	_leave(" = %d", ret);
+	_leave(" = %p", (void *)ret);
 	return ret;
 }
 
@@ -601,10 +688,10 @@ static void afs_wake_up_async_call(struct sock *sk, struct rxrpc_call *rxcall,
 	trace_afs_notify_call(rxcall, call);
 	call->need_attention = true;
 
-	u = __atomic_add_unless(&call->usage, 1, 0);
+	u = atomic_fetch_add_unless(&call->usage, 1, 0);
 	if (u != 0) {
 		trace_afs_call(call, afs_call_trace_wake, u,
-			       atomic_read(&afs_outstanding_calls),
+			       atomic_read(&call->net->nr_outstanding_calls),
 			       __builtin_return_address(0));
 
 		if (!queue_work(afs_async_calls, &call->async_work))
@@ -643,8 +730,6 @@ static void afs_process_async_call(struct work_struct *work)
 	}
 
 	if (call->state == AFS_CALL_COMPLETE) {
-		call->reply = NULL;
-
 		/* We have two refs to release - one from the alloc and one
 		 * queued with the work item - and we can't just deallocate the
 		 * call because the work item may be queued again.
@@ -668,30 +753,34 @@ static void afs_rx_attach(struct rxrpc_call *rxcall, unsigned long user_call_ID)
 /*
  * Charge the incoming call preallocation.
  */
-static void afs_charge_preallocation(struct work_struct *work)
+void afs_charge_preallocation(struct work_struct *work)
 {
-	struct afs_call *call = afs_spare_incoming_call;
+	struct afs_net *net =
+		container_of(work, struct afs_net, charge_preallocation_work);
+	struct afs_call *call = net->spare_incoming_call;
 
 	for (;;) {
 		if (!call) {
-			call = afs_alloc_call(&afs_RXCMxxxx, GFP_KERNEL);
+			call = afs_alloc_call(net, &afs_RXCMxxxx, GFP_KERNEL);
 			if (!call)
 				break;
 
 			call->async = true;
-			call->state = AFS_CALL_AWAIT_OP_ID;
+			call->state = AFS_CALL_SV_AWAIT_OP_ID;
 			init_waitqueue_head(&call->waitq);
+			afs_extract_to_tmp(call);
 		}
 
-		if (rxrpc_kernel_charge_accept(afs_socket,
+		if (rxrpc_kernel_charge_accept(net->socket,
 					       afs_wake_up_async_call,
 					       afs_rx_attach,
 					       (unsigned long)call,
-					       GFP_KERNEL) < 0)
+					       GFP_KERNEL,
+					       call->debug_id) < 0)
 			break;
 		call = NULL;
 	}
-	afs_spare_incoming_call = call;
+	net->spare_incoming_call = call;
 }
 
 /*
@@ -712,7 +801,9 @@ static void afs_rx_discard_new_call(struct rxrpc_call *rxcall,
 static void afs_rx_new_call(struct sock *sk, struct rxrpc_call *rxcall,
 			    unsigned long user_call_ID)
 {
-	queue_work(afs_wq, &afs_charge_preallocation_work);
+	struct afs_net *net = afs_sock2net(sk);
+
+	queue_work(afs_wq, &net->charge_preallocation_work);
 }
 
 /*
@@ -723,18 +814,15 @@ static int afs_deliver_cm_op_id(struct afs_call *call)
 {
 	int ret;
 
-	_enter("{%zu}", call->offset);
-
-	ASSERTCMP(call->offset, <, 4);
+	_enter("{%zu}", iov_iter_count(call->_iter));
 
 	/* the operation ID forms the first four bytes of the request data */
-	ret = afs_extract_data(call, &call->tmp, 4, true);
+	ret = afs_extract_data(call, true);
 	if (ret < 0)
 		return ret;
 
 	call->operation_ID = ntohl(call->tmp);
-	call->state = AFS_CALL_AWAIT_REQUEST;
-	call->offset = 0;
+	afs_set_call_state(call, AFS_CALL_SV_AWAIT_OP_ID, AFS_CALL_SV_AWAIT_REQUEST);
 
 	/* ask the cache manager to route the call (it'll change the call type
 	 * if successful) */
@@ -758,8 +846,7 @@ static void afs_notify_end_reply_tx(struct sock *sock,
 {
 	struct afs_call *call = (struct afs_call *)call_user_ID;
 
-	if (call->state == AFS_CALL_REPLYING)
-		call->state = AFS_CALL_AWAIT_ACK;
+	afs_set_call_state(call, AFS_CALL_SV_REPLYING, AFS_CALL_SV_AWAIT_ACK);
 }
 
 /*
@@ -767,21 +854,21 @@ static void afs_notify_end_reply_tx(struct sock *sock,
  */
 void afs_send_empty_reply(struct afs_call *call)
 {
+	struct afs_net *net = call->net;
 	struct msghdr msg;
 
 	_enter("");
 
-	rxrpc_kernel_set_tx_length(afs_socket, call->rxcall, 0);
+	rxrpc_kernel_set_tx_length(net->socket, call->rxcall, 0);
 
 	msg.msg_name		= NULL;
 	msg.msg_namelen		= 0;
-	iov_iter_kvec(&msg.msg_iter, WRITE | ITER_KVEC, NULL, 0, 0);
+	iov_iter_kvec(&msg.msg_iter, WRITE, NULL, 0, 0);
 	msg.msg_control		= NULL;
 	msg.msg_controllen	= 0;
 	msg.msg_flags		= 0;
 
-	call->state = AFS_CALL_AWAIT_ACK;
-	switch (rxrpc_kernel_send_data(afs_socket, call->rxcall, &msg, 0,
+	switch (rxrpc_kernel_send_data(net->socket, call->rxcall, &msg, 0,
 				       afs_notify_end_reply_tx)) {
 	case 0:
 		_leave(" [replied]");
@@ -789,7 +876,7 @@ void afs_send_empty_reply(struct afs_call *call)
 
 	case -ENOMEM:
 		_debug("oom");
-		rxrpc_kernel_abort_call(afs_socket, call->rxcall,
+		rxrpc_kernel_abort_call(net->socket, call->rxcall,
 					RX_USER_ABORT, -ENOMEM, "KOO");
 	default:
 		_leave(" [error]");
@@ -802,25 +889,25 @@ void afs_send_empty_reply(struct afs_call *call)
  */
 void afs_send_simple_reply(struct afs_call *call, const void *buf, size_t len)
 {
+	struct afs_net *net = call->net;
 	struct msghdr msg;
 	struct kvec iov[1];
 	int n;
 
 	_enter("");
 
-	rxrpc_kernel_set_tx_length(afs_socket, call->rxcall, len);
+	rxrpc_kernel_set_tx_length(net->socket, call->rxcall, len);
 
 	iov[0].iov_base		= (void *) buf;
 	iov[0].iov_len		= len;
 	msg.msg_name		= NULL;
 	msg.msg_namelen		= 0;
-	iov_iter_kvec(&msg.msg_iter, WRITE | ITER_KVEC, iov, 1, len);
+	iov_iter_kvec(&msg.msg_iter, WRITE, iov, 1, len);
 	msg.msg_control		= NULL;
 	msg.msg_controllen	= 0;
 	msg.msg_flags		= 0;
 
-	call->state = AFS_CALL_AWAIT_ACK;
-	n = rxrpc_kernel_send_data(afs_socket, call->rxcall, &msg, len,
+	n = rxrpc_kernel_send_data(net->socket, call->rxcall, &msg, len,
 				   afs_notify_end_reply_tx);
 	if (n >= 0) {
 		/* Success */
@@ -830,7 +917,7 @@ void afs_send_simple_reply(struct afs_call *call, const void *buf, size_t len)
 
 	if (n == -ENOMEM) {
 		_debug("oom");
-		rxrpc_kernel_abort_call(afs_socket, call->rxcall,
+		rxrpc_kernel_abort_call(net->socket, call->rxcall,
 					RX_USER_ABORT, -ENOMEM, "KOO");
 	}
 	_leave(" [error]");
@@ -839,41 +926,50 @@ void afs_send_simple_reply(struct afs_call *call, const void *buf, size_t len)
 /*
  * Extract a piece of data from the received data socket buffers.
  */
-int afs_extract_data(struct afs_call *call, void *buf, size_t count,
-		     bool want_more)
+int afs_extract_data(struct afs_call *call, bool want_more)
 {
+	struct afs_net *net = call->net;
+	struct iov_iter *iter = call->_iter;
+	enum afs_call_state state;
+	u32 remote_abort = 0;
 	int ret;
 
-	_enter("{%s,%zu},,%zu,%d",
-	       call->type->name, call->offset, count, want_more);
+	_enter("{%s,%zu},%d", call->type->name, iov_iter_count(iter), want_more);
 
-	ASSERTCMP(call->offset, <=, count);
-
-	ret = rxrpc_kernel_recv_data(afs_socket, call->rxcall,
-				     buf, count, &call->offset,
-				     want_more, &call->abort_code);
-	trace_afs_recv_data(call, count, call->offset, want_more, ret);
+	ret = rxrpc_kernel_recv_data(net->socket, call->rxcall, iter,
+				     want_more, &remote_abort,
+				     &call->service_id);
 	if (ret == 0 || ret == -EAGAIN)
 		return ret;
 
+	state = READ_ONCE(call->state);
 	if (ret == 1) {
-		switch (call->state) {
-		case AFS_CALL_AWAIT_REPLY:
-			call->state = AFS_CALL_COMPLETE;
+		switch (state) {
+		case AFS_CALL_CL_AWAIT_REPLY:
+			afs_set_call_state(call, state, AFS_CALL_CL_PROC_REPLY);
 			break;
-		case AFS_CALL_AWAIT_REQUEST:
-			call->state = AFS_CALL_REPLYING;
+		case AFS_CALL_SV_AWAIT_REQUEST:
+			afs_set_call_state(call, state, AFS_CALL_SV_REPLYING);
 			break;
+		case AFS_CALL_COMPLETE:
+			kdebug("prem complete %d", call->error);
+			return afs_io_error(call, afs_io_error_extract);
 		default:
 			break;
 		}
 		return 0;
 	}
 
-	if (ret == -ECONNABORTED)
-		call->error = call->type->abort_to_error(call->abort_code);
-	else
-		call->error = ret;
-	call->state = AFS_CALL_COMPLETE;
+	afs_set_call_complete(call, ret, remote_abort);
 	return ret;
+}
+
+/*
+ * Log protocol error production.
+ */
+noinline int afs_protocol_error(struct afs_call *call, int error,
+				enum afs_eproto_cause cause)
+{
+	trace_afs_protocol_error(call, error, cause);
+	return error;
 }

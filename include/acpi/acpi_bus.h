@@ -91,6 +91,9 @@ acpi_evaluate_dsm_typed(acpi_handle handle, const guid_t *guid, u64 rev,
 bool acpi_dev_found(const char *hid);
 bool acpi_dev_present(const char *hid, const char *uid, s64 hrv);
 
+const char *
+acpi_dev_get_first_match_name(const char *hid, const char *uid, s64 hrv);
+
 #ifdef CONFIG_ACPI
 
 #include <linux/proc_fs.h>
@@ -105,6 +108,7 @@ enum acpi_bus_device_type {
 	ACPI_BUS_TYPE_THERMAL,
 	ACPI_BUS_TYPE_POWER_BUTTON,
 	ACPI_BUS_TYPE_SLEEP_BUTTON,
+	ACPI_BUS_TYPE_ECDT_EC,
 	ACPI_BUS_DEVICE_TYPE_COUNT
 };
 
@@ -211,7 +215,7 @@ struct acpi_device_flags {
 	u32 of_compatible_ok:1;
 	u32 coherent_dma:1;
 	u32 cca_seen:1;
-	u32 spi_i2c_slave:1;
+	u32 enumeration_by_parent:1;
 	u32 reserved:19;
 };
 
@@ -342,10 +346,16 @@ struct acpi_device_physical_node {
 	bool put_online:1;
 };
 
+struct acpi_device_properties {
+	const guid_t *guid;
+	const union acpi_object *properties;
+	struct list_head list;
+};
+
 /* ACPI Device Specific Data (_DSD) */
 struct acpi_device_data {
 	const union acpi_object *pointer;
-	const union acpi_object *properties;
+	struct list_head properties;
 	const union acpi_object *of_compatible;
 	struct list_head subnodes;
 };
@@ -591,7 +601,6 @@ enum dev_dma_attr acpi_get_dma_attr(struct acpi_device *adev);
 int acpi_dma_get_range(struct device *dev, u64 *dma_addr, u64 *offset,
 		       u64 *size);
 int acpi_dma_configure(struct device *dev, enum dev_dma_attr attr);
-void acpi_dma_deconfigure(struct device *dev);
 
 struct acpi_device *acpi_find_child_device(struct acpi_device *parent,
 					   u64 address, bool check_children);

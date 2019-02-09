@@ -191,7 +191,7 @@ static char *res_strings[] = {
 	"reserved 37",
 	"reserved 38",
 	"reserved 39",
-	"reseverd 40",
+	"reserved 40",
 	"reserved 41", 
 	"reserved 42", 
 	"reserved 43", 
@@ -1410,7 +1410,7 @@ static int init_q(struct fs_dev *dev, struct queue *txq, int queue,
 
 	func_enter ();
 
-	fs_dprintk (FS_DEBUG_INIT, "Inititing queue at %x: %d entries:\n", 
+	fs_dprintk (FS_DEBUG_INIT, "Initializing queue at %x: %d entries:\n",
 		    queue, nentries);
 
 	p = aligned_kmalloc (sz, GFP_KERNEL, 0x10);
@@ -1443,7 +1443,7 @@ static int init_fp(struct fs_dev *dev, struct freepool *fp, int queue,
 {
 	func_enter ();
 
-	fs_dprintk (FS_DEBUG_INIT, "Inititing free pool at %x:\n", queue);
+	fs_dprintk (FS_DEBUG_INIT, "Initializing free pool at %x:\n", queue);
 
 	write_fs (dev, FP_CNF(queue), (bufsize * RBFP_RBS) | RBFP_RBSVAL | RBFP_CME);
 	write_fs (dev, FP_SA(queue),  0);
@@ -1656,9 +1656,9 @@ static irqreturn_t fs_irq (int irq, void *dev_id)
 
 
 #ifdef FS_POLL_FREQ
-static void fs_poll (unsigned long data)
+static void fs_poll (struct timer_list *t)
 {
-	struct fs_dev *dev = (struct fs_dev *) data;
+	struct fs_dev *dev = from_timer(dev, t, timer);
   
 	fs_irq (0, dev);
 	dev->timer.expires = jiffies + FS_POLL_FREQ;
@@ -1885,9 +1885,7 @@ static int fs_init(struct fs_dev *dev)
 	}
 
 #ifdef FS_POLL_FREQ
-	init_timer (&dev->timer);
-	dev->timer.data = (unsigned long) dev;
-	dev->timer.function = fs_poll;
+	timer_setup(&dev->timer, fs_poll, 0);
 	dev->timer.expires = jiffies + FS_POLL_FREQ;
 	add_timer (&dev->timer);
 #endif

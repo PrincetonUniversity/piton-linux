@@ -34,6 +34,10 @@
 # include "test-libelf-mmap.c"
 #undef main
 
+#define main main_test_get_current_dir_name
+# include "test-get_current_dir_name.c"
+#undef main
+
 #define main main_test_glibc
 # include "test-glibc.c"
 #undef main
@@ -118,6 +122,10 @@
 # include "test-pthread-attr-setaffinity-np.c"
 #undef main
 
+#define main main_test_pthread_barrier
+# include "test-pthread-barrier.c"
+#undef main
+
 #define main main_test_sched_getcpu
 # include "test-sched_getcpu.c"
 #undef main
@@ -158,6 +166,10 @@
 # include "test-setns.c"
 #undef main
 
+#define main main_test_libopencsd
+# include "test-libopencsd.c"
+#undef main
+
 int main(int argc, char *argv[])
 {
 	main_test_libpython();
@@ -166,6 +178,7 @@ int main(int argc, char *argv[])
 	main_test_hello();
 	main_test_libelf();
 	main_test_libelf_mmap();
+	main_test_get_current_dir_name();
 	main_test_glibc();
 	main_test_dwarf();
 	main_test_dwarf_getlocations();
@@ -187,6 +200,7 @@ int main(int argc, char *argv[])
 	main_test_sync_compare_and_swap(argc, argv);
 	main_test_zlib();
 	main_test_pthread_attr_setaffinity_np();
+	main_test_pthread_barrier();
 	main_test_lzma();
 	main_test_get_cpuid();
 	main_test_bpf();
@@ -194,6 +208,7 @@ int main(int argc, char *argv[])
 	main_test_sched_getcpu();
 	main_test_sdt();
 	main_test_setns();
+	main_test_libopencsd();
 
 	return 0;
 }

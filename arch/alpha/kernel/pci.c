@@ -18,10 +18,11 @@
 #include <linux/init.h>
 #include <linux/ioport.h>
 #include <linux/kernel.h>
-#include <linux/bootmem.h>
+#include <linux/memblock.h>
 #include <linux/module.h>
 #include <linux/cache.h>
 #include <linux/slab.h>
+#include <linux/syscalls.h>
 #include <asm/machvec.h>
 
 #include "proto.h"
@@ -197,9 +198,16 @@ pcibios_init(void)
 subsys_initcall(pcibios_init);
 
 #ifdef ALPHA_RESTORE_SRM_SETUP
+/* Store PCI device configuration left by SRM here. */
+struct pdev_srm_saved_conf
+{
+	struct pdev_srm_saved_conf *next;
+	struct pci_dev *dev;
+};
+
 static struct pdev_srm_saved_conf *srm_saved_configs;
 
-void pdev_save_srm_config(struct pci_dev *dev)
+static void pdev_save_srm_config(struct pci_dev *dev)
 {
 	struct pdev_srm_saved_conf *tmp;
 	static int printed = 0;
@@ -239,6 +247,8 @@ pci_restore_srm_config(void)
 		pci_restore_state(tmp->dev);
 	}
 }
+#else
+#define pdev_save_srm_config(dev)	do {} while (0)
 #endif
 
 void pcibios_fixup_bus(struct pci_bus *bus)
@@ -382,7 +392,7 @@ alloc_pci_controller(void)
 {
 	struct pci_controller *hose;
 
-	hose = alloc_bootmem(sizeof(*hose));
+	hose = memblock_alloc(sizeof(*hose), SMP_CACHE_BYTES);
 
 	*hose_tail = hose;
 	hose_tail = &hose->next;
@@ -393,15 +403,15 @@ alloc_pci_controller(void)
 struct resource * __init
 alloc_resource(void)
 {
-	return alloc_bootmem(sizeof(struct resource));
+	return memblock_alloc(sizeof(struct resource), SMP_CACHE_BYTES);
 }
 
 
 /* Provide information on locations of various I/O regions in physical
    memory.  Do this on a per-card basis so that we choose the right hose.  */
 
-asmlinkage long
-sys_pciconfig_iobase(long which, unsigned long bus, unsigned long dfn)
+SYSCALL_DEFINE3(pciconfig_iobase, long, which, unsigned long, bus,
+		unsigned long, dfn)
 {
 	struct pci_controller *hose;
 	struct pci_dev *dev;
@@ -416,7 +426,7 @@ sys_pciconfig_iobase(long which, unsigned long bus, unsigned long dfn)
 		if (bus == 0 && dfn == 0) {
 			hose = pci_isa_hose;
 		} else {
-			dev = pci_get_bus_and_slot(bus, dfn);
+			dev = pci_get_domain_bus_and_slot(0, bus, dfn);
 			if (!dev)
 				return -ENODEV;
 			hose = dev->sysdata;

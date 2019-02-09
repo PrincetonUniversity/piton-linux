@@ -38,9 +38,6 @@ static struct mce_log_buffer mcelog = {
 
 static DECLARE_WAIT_QUEUE_HEAD(mce_chrdev_wait);
 
-/* User mode helper program triggered by machine check event */
-extern char			mce_helper[128];
-
 static int dev_mce_log(struct notifier_block *nb, unsigned long val,
 				void *data)
 {
@@ -243,13 +240,13 @@ out:
 	return err ? err : buf - ubuf;
 }
 
-static unsigned int mce_chrdev_poll(struct file *file, poll_table *wait)
+static __poll_t mce_chrdev_poll(struct file *file, poll_table *wait)
 {
 	poll_wait(file, &mce_chrdev_wait, wait);
 	if (READ_ONCE(mcelog.next))
-		return POLLIN | POLLRDNORM;
+		return EPOLLIN | EPOLLRDNORM;
 	if (!mce_apei_read_done && apei_check_mce())
-		return POLLIN | POLLRDNORM;
+		return EPOLLIN | EPOLLRDNORM;
 	return 0;
 }
 

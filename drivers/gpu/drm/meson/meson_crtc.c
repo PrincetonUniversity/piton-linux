@@ -36,6 +36,7 @@
 #include "meson_venc.h"
 #include "meson_vpp.h"
 #include "meson_viu.h"
+#include "meson_canvas.h"
 #include "meson_registers.h"
 
 /* CRTC definition */
@@ -44,6 +45,7 @@ struct meson_crtc {
 	struct drm_crtc base;
 	struct drm_pending_vblank_event *event;
 	struct meson_drm *priv;
+	bool enabled;
 };
 #define to_meson_crtc(x) container_of(x, struct meson_crtc, base)
 
@@ -79,8 +81,7 @@ static const struct drm_crtc_funcs meson_crtc_funcs = {
 
 };
 
-static void meson_crtc_atomic_enable(struct drm_crtc *crtc,
-				     struct drm_crtc_state *old_state)
+static void meson_crtc_enable(struct drm_crtc *crtc)
 {
 	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
 	struct drm_crtc_state *crtc_state = crtc->state;
@@ -100,6 +101,22 @@ static void meson_crtc_atomic_enable(struct drm_crtc *crtc,
 	writel_bits_relaxed(VPP_POSTBLEND_ENABLE, VPP_POSTBLEND_ENABLE,
 			    priv->io_base + _REG(VPP_MISC));
 
+	drm_crtc_vblank_on(crtc);
+
+	meson_crtc->enabled = true;
+}
+
+static void meson_crtc_atomic_enable(struct drm_crtc *crtc,
+				     struct drm_crtc_state *old_state)
+{
+	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
+	struct meson_drm *priv = meson_crtc->priv;
+
+	DRM_DEBUG_DRIVER("\n");
+
+	if (!meson_crtc->enabled)
+		meson_crtc_enable(crtc);
+
 	priv->viu.osd1_enabled = true;
 }
 
@@ -108,6 +125,8 @@ static void meson_crtc_atomic_disable(struct drm_crtc *crtc,
 {
 	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
 	struct meson_drm *priv = meson_crtc->priv;
+
+	drm_crtc_vblank_off(crtc);
 
 	priv->viu.osd1_enabled = false;
 	priv->viu.osd1_commit = false;
@@ -123,6 +142,8 @@ static void meson_crtc_atomic_disable(struct drm_crtc *crtc,
 
 		crtc->state->event = NULL;
 	}
+
+	meson_crtc->enabled = false;
 }
 
 static void meson_crtc_atomic_begin(struct drm_crtc *crtc,
@@ -130,6 +151,9 @@ static void meson_crtc_atomic_begin(struct drm_crtc *crtc,
 {
 	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
 	unsigned long flags;
+
+	if (crtc->state->enable && !meson_crtc->enabled)
+		meson_crtc_enable(crtc);
 
 	if (crtc->state->event) {
 		WARN_ON(drm_crtc_vblank_get(crtc) != 0);
@@ -191,6 +215,11 @@ void meson_crtc_irq(struct meson_drm *priv)
 			meson_vpp_setup_interlace_vscaler_osd1(priv, &dest);
 		} else
 			meson_vpp_disable_interlace_vscaler_osd1(priv);
+
+		meson_canvas_setup(priv, MESON_CANVAS_ID_OSD1,
+			   priv->viu.osd1_addr, priv->viu.osd1_stride,
+			   priv->viu.osd1_height, MESON_CANVAS_WRAP_NONE,
+			   MESON_CANVAS_BLKMODE_LINEAR);
 
 		/* Enable OSD1 */
 		writel_bits_relaxed(VPP_OSD1_POSTBLEND, VPP_OSD1_POSTBLEND,

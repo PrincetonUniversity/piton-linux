@@ -423,7 +423,7 @@ static int bond_changelink(struct net_device *bond_dev, struct nlattr *tb[],
 			return -EINVAL;
 
 		bond_opt_initval(&newval,
-				 nla_get_be64(data[IFLA_BOND_AD_ACTOR_SYSTEM]));
+				 nla_get_u64(data[IFLA_BOND_AD_ACTOR_SYSTEM]));
 		err = __bond_opt_set(bond, BOND_OPT_AD_ACTOR_SYSTEM, &newval);
 		if (err)
 			return err;
@@ -638,8 +638,7 @@ static int bond_fill_info(struct sk_buff *skb,
 				goto nla_put_failure;
 
 			if (nla_put(skb, IFLA_BOND_AD_ACTOR_SYSTEM,
-				    sizeof(bond->params.ad_actor_system),
-				    &bond->params.ad_actor_system))
+				    ETH_ALEN, &bond->params.ad_actor_system))
 				goto nla_put_failure;
 		}
 		if (!bond_3ad_get_active_agg_info(bond, &info)) {

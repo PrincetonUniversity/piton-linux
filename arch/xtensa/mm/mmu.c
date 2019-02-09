@@ -4,7 +4,7 @@
  *
  * Extracted from init.c
  */
-#include <linux/bootmem.h>
+#include <linux/memblock.h>
 #include <linux/percpu.h>
 #include <linux/init.h>
 #include <linux/string.h>
@@ -31,7 +31,7 @@ static void * __init init_pmd(unsigned long vaddr, unsigned long n_pages)
 	pr_debug("%s: vaddr: 0x%08lx, n_pages: %ld\n",
 		 __func__, vaddr, n_pages);
 
-	pte = alloc_bootmem_low_pages(n_pages * sizeof(pte_t));
+	pte = memblock_alloc_low(n_pages * sizeof(pte_t), PAGE_SIZE);
 
 	for (i = 0; i < n_pages; ++i)
 		pte_clear(NULL, 0, pte + i);
@@ -56,7 +56,6 @@ static void __init fixedrange_init(void)
 
 void __init paging_init(void)
 {
-	memset(swapper_pg_dir, 0, PAGE_SIZE);
 #ifdef CONFIG_HIGHMEM
 	fixedrange_init();
 	pkmap_page_table = init_pmd(PKMAP_BASE, LAST_PKMAP);
@@ -82,6 +81,23 @@ void init_mmu(void)
 	set_itlbcfg_register(0);
 	set_dtlbcfg_register(0);
 #endif
+	init_kio();
+	local_flush_tlb_all();
+
+	/* Set rasid register to a known value. */
+
+	set_rasid_register(ASID_INSERT(ASID_USER_FIRST));
+
+	/* Set PTEVADDR special register to the start of the page
+	 * table, which is in kernel mappable space (ie. not
+	 * statically mapped).  This register's value is undefined on
+	 * reset.
+	 */
+	set_ptevaddr_register(XCHAL_PAGE_TABLE_VADDR);
+}
+
+void init_kio(void)
+{
 #if XCHAL_HAVE_PTP_MMU && XCHAL_HAVE_SPANNING_WAY && defined(CONFIG_OF)
 	/*
 	 * Update the IO area mapping in case xtensa_kio_paddr has changed
@@ -95,17 +111,4 @@ void init_mmu(void)
 	write_itlb_entry(__pte(xtensa_kio_paddr + CA_BYPASS),
 			XCHAL_KIO_BYPASS_VADDR + 6);
 #endif
-
-	local_flush_tlb_all();
-
-	/* Set rasid register to a known value. */
-
-	set_rasid_register(ASID_INSERT(ASID_USER_FIRST));
-
-	/* Set PTEVADDR special register to the start of the page
-	 * table, which is in kernel mappable space (ie. not
-	 * statically mapped).  This register's value is undefined on
-	 * reset.
-	 */
-	set_ptevaddr_register(PGTABLE_START);
 }

@@ -55,11 +55,15 @@ MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
 MODULE_DESCRIPTION("core IP set support");
 MODULE_ALIAS_NFNL_SUBSYS(NFNL_SUBSYS_IPSET);
 
-/* When the nfnl mutex is held: */
+/* When the nfnl mutex or ip_set_ref_lock is held: */
 #define ip_set_dereference(p)		\
-	rcu_dereference_protected(p, 1)
+	rcu_dereference_protected(p,	\
+		lockdep_nfnl_is_held(NFNL_SUBSYS_IPSET) || \
+		lockdep_is_held(&ip_set_ref_lock))
 #define ip_set(inst, id)		\
 	ip_set_dereference((inst)->ip_set_list)[id]
+#define ip_set_ref_netlink(inst,id)	\
+	rcu_dereference_raw((inst)->ip_set_list)[id]
 
 /* The set types are implemented in modules and registered set types
  * can be found in ip_set_type_list. Adding/deleting types is
@@ -472,6 +476,31 @@ ip_set_put_extensions(struct sk_buff *skb, const struct ip_set *set,
 }
 EXPORT_SYMBOL_GPL(ip_set_put_extensions);
 
+bool
+ip_set_match_extensions(struct ip_set *set, const struct ip_set_ext *ext,
+			struct ip_set_ext *mext, u32 flags, void *data)
+{
+	if (SET_WITH_TIMEOUT(set) &&
+	    ip_set_timeout_expired(ext_timeout(data, set)))
+		return false;
+	if (SET_WITH_COUNTER(set)) {
+		struct ip_set_counter *counter = ext_counter(data, set);
+
+		if (flags & IPSET_FLAG_MATCH_COUNTERS &&
+		    !(ip_set_match_counter(ip_set_get_packets(counter),
+				mext->packets, mext->packets_op) &&
+		      ip_set_match_counter(ip_set_get_bytes(counter),
+				mext->bytes, mext->bytes_op)))
+			return false;
+		ip_set_update_counter(counter, ext, flags);
+	}
+	if (SET_WITH_SKBINFO(set))
+		ip_set_get_skbinfo(ext_skbinfo(data, set),
+				   ext, mext, flags);
+	return true;
+}
+EXPORT_SYMBOL_GPL(ip_set_match_extensions);
+
 /* Creating/destroying/renaming/swapping affect the existence and
  * the properties of a set. All of these can be executed from userspace
  * only and serialized by the nfnl mutex indirectly from nfnetlink.
@@ -668,21 +697,20 @@ ip_set_put_byindex(struct net *net, ip_set_id_t index)
 EXPORT_SYMBOL_GPL(ip_set_put_byindex);
 
 /* Get the name of a set behind a set index.
- * We assume the set is referenced, so it does exist and
- * can't be destroyed. The set cannot be renamed due to
- * the referencing either.
- *
+ * Set itself is protected by RCU, but its name isn't: to protect against
+ * renaming, grab ip_set_ref_lock as reader (see ip_set_rename()) and copy the
+ * name.
  */
-const char *
-ip_set_name_byindex(struct net *net, ip_set_id_t index)
+void
+ip_set_name_byindex(struct net *net, ip_set_id_t index, char *name)
 {
-	const struct ip_set *set = ip_set_rcu_get(net, index);
+	struct ip_set *set = ip_set_rcu_get(net, index);
 
 	BUG_ON(!set);
-	BUG_ON(set->ref == 0);
 
-	/* Referenced, so it's safe */
-	return set->name;
+	read_lock_bh(&ip_set_ref_lock);
+	strncpy(name, set->name, IPSET_MAXNAMELEN);
+	read_unlock_bh(&ip_set_ref_lock);
 }
 EXPORT_SYMBOL_GPL(ip_set_name_byindex);
 
@@ -936,7 +964,7 @@ static int ip_set_create(struct net *net, struct sock *ctnl,
 			/* Wraparound */
 			goto cleanup;
 
-		list = kcalloc(i, sizeof(struct ip_set *), GFP_KERNEL);
+		list = kvcalloc(i, sizeof(struct ip_set *), GFP_KERNEL);
 		if (!list)
 			goto cleanup;
 		/* nfnl mutex is held, both lists are valid */
@@ -948,7 +976,7 @@ static int ip_set_create(struct net *net, struct sock *ctnl,
 		/* Use new list */
 		index = inst->ip_set_max;
 		inst->ip_set_max = i;
-		kfree(tmp);
+		kvfree(tmp);
 		ret = 0;
 	} else if (ret) {
 		goto cleanup;
@@ -1128,7 +1156,7 @@ static int ip_set_rename(struct net *net, struct sock *ctnl,
 	if (!set)
 		return -ENOENT;
 
-	read_lock_bh(&ip_set_ref_lock);
+	write_lock_bh(&ip_set_ref_lock);
 	if (set->ref != 0) {
 		ret = -IPSET_ERR_REFERENCED;
 		goto out;
@@ -1145,7 +1173,7 @@ static int ip_set_rename(struct net *net, struct sock *ctnl,
 	strncpy(set->name, name2, IPSET_MAXNAMELEN);
 
 out:
-	read_unlock_bh(&ip_set_ref_lock);
+	write_unlock_bh(&ip_set_ref_lock);
 	return ret;
 }
 
@@ -1227,7 +1255,7 @@ ip_set_dump_done(struct netlink_callback *cb)
 		struct ip_set_net *inst =
 			(struct ip_set_net *)cb->args[IPSET_CB_NET];
 		ip_set_id_t index = (ip_set_id_t)cb->args[IPSET_CB_INDEX];
-		struct ip_set *set = ip_set(inst, index);
+		struct ip_set *set = ip_set_ref_netlink(inst, index);
 
 		if (set->variant->uref)
 			set->variant->uref(set, cb, false);
@@ -1386,11 +1414,9 @@ dump_last:
 				goto next_set;
 			if (set->variant->uref)
 				set->variant->uref(set, cb, true);
-			/* Fall through and add elements */
+			/* fall through */
 		default:
-			rcu_read_lock_bh();
 			ret = set->variant->list(set, skb, cb);
-			rcu_read_unlock_bh();
 			if (!cb->args[IPSET_CB_ARG0])
 				/* Set is done, proceed with next one */
 				goto next_set;
@@ -1418,7 +1444,7 @@ next_set:
 release_refcount:
 	/* If there was an error or set is done, release set */
 	if (ret || !cb->args[IPSET_CB_ARG0]) {
-		set = ip_set(inst, index);
+		set = ip_set_ref_netlink(inst, index);
 		if (set->variant->uref)
 			set->variant->uref(set, cb, false);
 		pr_debug("release set %s\n", set->name);
@@ -2036,7 +2062,7 @@ ip_set_net_init(struct net *net)
 	if (inst->ip_set_max >= IPSET_INVALID_ID)
 		inst->ip_set_max = IPSET_INVALID_ID - 1;
 
-	list = kcalloc(inst->ip_set_max, sizeof(struct ip_set *), GFP_KERNEL);
+	list = kvcalloc(inst->ip_set_max, sizeof(struct ip_set *), GFP_KERNEL);
 	if (!list)
 		return -ENOMEM;
 	inst->is_deleted = false;
@@ -2055,6 +2081,7 @@ ip_set_net_exit(struct net *net)
 
 	inst->is_deleted = true; /* flag for ip_set_nfnl_put */
 
+	nfnl_lock(NFNL_SUBSYS_IPSET);
 	for (i = 0; i < inst->ip_set_max; i++) {
 		set = ip_set(inst, i);
 		if (set) {
@@ -2062,14 +2089,15 @@ ip_set_net_exit(struct net *net)
 			ip_set_destroy_set(set);
 		}
 	}
-	kfree(rcu_dereference_protected(inst->ip_set_list, 1));
+	nfnl_unlock(NFNL_SUBSYS_IPSET);
+	kvfree(rcu_dereference_protected(inst->ip_set_list, 1));
 }
 
 static struct pernet_operations ip_set_net_ops = {
 	.init	= ip_set_net_init,
 	.exit   = ip_set_net_exit,
 	.id	= &ip_set_net_id,
-	.size	= sizeof(struct ip_set_net)
+	.size	= sizeof(struct ip_set_net),
 };
 
 static int __init
@@ -2097,7 +2125,6 @@ ip_set_init(void)
 		return ret;
 	}
 
-	pr_info("ip_set: protocol %u\n", IPSET_PROTOCOL);
 	return 0;
 }
 
@@ -2113,3 +2140,5 @@ ip_set_fini(void)
 
 module_init(ip_set_init);
 module_exit(ip_set_fini);
+
+MODULE_DESCRIPTION("ip_set: protocol " __stringify(IPSET_PROTOCOL));

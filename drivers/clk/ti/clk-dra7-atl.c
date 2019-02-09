@@ -190,8 +190,8 @@ static void __init of_dra7_atl_clock_setup(struct device_node *node)
 	init.num_parents = of_clk_get_parent_count(node);
 
 	if (init.num_parents != 1) {
-		pr_err("%s: atl clock %s must have 1 parent\n", __func__,
-		       node->name);
+		pr_err("%s: atl clock %pOFn must have 1 parent\n", __func__,
+		       node);
 		goto cleanup;
 	}
 
@@ -274,8 +274,7 @@ static int of_dra7_atl_clk_probe(struct platform_device *pdev)
 
 		/* Get configuration for the ATL instances */
 		snprintf(prop, sizeof(prop), "atl%u", i);
-		of_node_get(node);
-		cfg_node = of_find_node_by_name(node, prop);
+		cfg_node = of_get_child_by_name(node, prop);
 		if (cfg_node) {
 			ret = of_property_read_u32(cfg_node, "bws",
 						   &cdesc->bws);

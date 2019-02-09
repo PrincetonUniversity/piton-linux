@@ -25,15 +25,21 @@
 #include <linux/dmi.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/interrupt.h>
 #include <linux/mfd/cros_ec.h>
 #include <linux/mfd/cros_ec_commands.h>
-#include <linux/mfd/cros_ec_lpc_reg.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/printk.h>
+#include <linux/suspend.h>
+
+#include "cros_ec_lpc_reg.h"
 
 #define DRV_NAME "cros_ec_lpcs"
 #define ACPI_DRV_NAME "GOOG0004"
+
+/* True if ACPI device is present */
+static bool cros_ec_lpc_acpi_device_found;
 
 static int ec_response_timed_out(void)
 {
@@ -54,7 +60,6 @@ static int ec_response_timed_out(void)
 static int cros_ec_pkt_xfer_lpc(struct cros_ec_device *ec,
 				struct cros_ec_command *msg)
 {
-	struct ec_host_request *request;
 	struct ec_host_response response;
 	u8 sum;
 	int ret = 0;
@@ -64,8 +69,6 @@ static int cros_ec_pkt_xfer_lpc(struct cros_ec_device *ec,
 
 	/* Write buffer */
 	cros_ec_lpc_write_bytes(EC_LPC_ADDR_HOST_PACKET, ret, ec->dout);
-
-	request = (struct ec_host_request *)ec->dout;
 
 	/* Here we go */
 	sum = EC_COMMAND_PROTOCOL_3;
@@ -235,6 +238,9 @@ static void cros_ec_lpc_acpi_notify(acpi_handle device, u32 value, void *data)
 	    cros_ec_get_next_event(ec_dev, NULL) > 0)
 		blocking_notifier_call_chain(&ec_dev->event_notifier, 0,
 					     ec_dev);
+
+	if (value == ACPI_NOTIFY_DEVICE_WAKE)
+		pm_system_wakeup();
 }
 
 static int cros_ec_lpc_probe(struct platform_device *pdev)
@@ -244,7 +250,7 @@ static int cros_ec_lpc_probe(struct platform_device *pdev)
 	acpi_status status;
 	struct cros_ec_device *ec_dev;
 	u8 buf[2];
-	int ret;
+	int irq, ret;
 
 	if (!devm_request_region(dev, EC_LPC_ADDR_MEMMAP, EC_MEMMAP_SIZE,
 				 dev_name(dev))) {
@@ -282,6 +288,18 @@ static int cros_ec_lpc_probe(struct platform_device *pdev)
 	ec_dev->din_size = sizeof(struct ec_host_response) +
 			   sizeof(struct ec_response_get_protocol_info);
 	ec_dev->dout_size = sizeof(struct ec_host_request);
+
+	/*
+	 * Some boards do not have an IRQ allotted for cros_ec_lpc,
+	 * which makes ENXIO an expected (and safe) scenario.
+	 */
+	irq = platform_get_irq(pdev, 0);
+	if (irq > 0)
+		ec_dev->irq = irq;
+	else if (irq != -ENXIO) {
+		dev_err(dev, "couldn't retrieve IRQ number (%d)\n", irq);
+		return irq;
+	}
 
 	ret = cros_ec_register(ec_dev);
 	if (ret) {
@@ -342,6 +360,18 @@ static const struct dmi_system_id cros_ec_lpc_dmi_table[] __initconst = {
 		},
 	},
 	{
+		/*
+		 * If the box is running custom coreboot firmware then the
+		 * DMI BIOS version string will not be matched by "Google_",
+		 * but the system vendor string will still be matched by
+		 * "GOOGLE".
+		 */
+		.matches = {
+			DMI_MATCH(DMI_BIOS_VENDOR, "coreboot"),
+			DMI_MATCH(DMI_SYS_VENDOR, "GOOGLE"),
+		},
+	},
+	{
 		/* x86-link, the Chromebook Pixel. */
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "GOOGLE"),
@@ -360,6 +390,13 @@ static const struct dmi_system_id cros_ec_lpc_dmi_table[] __initconst = {
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Acer"),
 			DMI_MATCH(DMI_PRODUCT_NAME, "Peppy"),
+		},
+	},
+	{
+		/* x86-glimmer, the Lenovo Thinkpad Yoga 11e. */
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "GOOGLE"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Glimmer"),
 		},
 	},
 	{ /* sentinel */ }
@@ -396,11 +433,29 @@ static struct platform_driver cros_ec_lpc_driver = {
 	.remove = cros_ec_lpc_remove,
 };
 
+static struct platform_device cros_ec_lpc_device = {
+	.name = DRV_NAME
+};
+
+static acpi_status cros_ec_lpc_parse_device(acpi_handle handle, u32 level,
+					    void *context, void **retval)
+{
+	*(bool *)context = true;
+	return AE_CTRL_TERMINATE;
+}
+
 static int __init cros_ec_lpc_init(void)
 {
 	int ret;
+	acpi_status status;
 
-	if (!dmi_check_system(cros_ec_lpc_dmi_table)) {
+	status = acpi_get_devices(ACPI_DRV_NAME, cros_ec_lpc_parse_device,
+				  &cros_ec_lpc_acpi_device_found, NULL);
+	if (ACPI_FAILURE(status))
+		pr_warn(DRV_NAME ": Looking for %s failed\n", ACPI_DRV_NAME);
+
+	if (!cros_ec_lpc_acpi_device_found &&
+	    !dmi_check_system(cros_ec_lpc_dmi_table)) {
 		pr_err(DRV_NAME ": unsupported system.\n");
 		return -ENODEV;
 	}
@@ -415,11 +470,23 @@ static int __init cros_ec_lpc_init(void)
 		return ret;
 	}
 
-	return 0;
+	if (!cros_ec_lpc_acpi_device_found) {
+		/* Register the device, and it'll get hooked up automatically */
+		ret = platform_device_register(&cros_ec_lpc_device);
+		if (ret) {
+			pr_err(DRV_NAME ": can't register device: %d\n", ret);
+			platform_driver_unregister(&cros_ec_lpc_driver);
+			cros_ec_lpc_reg_destroy();
+		}
+	}
+
+	return ret;
 }
 
 static void __exit cros_ec_lpc_exit(void)
 {
+	if (!cros_ec_lpc_acpi_device_found)
+		platform_device_unregister(&cros_ec_lpc_device);
 	platform_driver_unregister(&cros_ec_lpc_driver);
 	cros_ec_lpc_reg_destroy();
 }

@@ -360,7 +360,8 @@ static int as3645a_set_flash_brightness(struct led_classdev_flash *fled,
 {
 	struct as3645a *flash = fled_to_as3645a(fled);
 
-	flash->flash_current = as3645a_current_to_reg(flash, true, brightness_ua);
+	flash->flash_current = as3645a_current_to_reg(flash, true,
+						      brightness_ua);
 
 	return as3645a_set_current(flash);
 }
@@ -455,8 +456,8 @@ static int as3645a_detect(struct as3645a *flash)
 
 	/* Verify the chip model and version. */
 	if (model != 0x01 || rfu != 0x00) {
-		dev_err(dev, "AS3645A not detected "
-			"(model %d rfu %d)\n", model, rfu);
+		dev_err(dev, "AS3645A not detected (model %d rfu %d)\n",
+			model, rfu);
 		return -ENODEV;
 	}
 
@@ -528,7 +529,7 @@ static int as3645a_parse_node(struct as3645a *flash,
 		strlcpy(names->flash, name, sizeof(names->flash));
 	else
 		snprintf(names->flash, sizeof(names->flash),
-			 "%s:flash", node->name);
+			 "%pOFn:flash", node);
 
 	rval = of_property_read_u32(flash->flash_node, "flash-timeout-us",
 				    &cfg->flash_timeout_us);
@@ -572,7 +573,7 @@ static int as3645a_parse_node(struct as3645a *flash,
 		strlcpy(names->indicator, name, sizeof(names->indicator));
 	else
 		snprintf(names->indicator, sizeof(names->indicator),
-			 "%s:indicator", node->name);
+			 "%pOFn:indicator", node);
 
 	rval = of_property_read_u32(flash->indicator_node, "led-max-microamp",
 				    &cfg->indicator_max_ua);

@@ -16,7 +16,7 @@
 #include <linux/io.h>
 #include <linux/mm.h>
 #include <linux/clk.h>
-#include <linux/bootmem.h>
+#include <linux/memblock.h>
 #include <asm/pgalloc.h>
 #include <asm/machdep.h>
 #include <asm/coldfire.h>
@@ -96,10 +96,6 @@ static void mcf54xx_reset(void)
 
 void __init config_BSP(char *commandp, int size)
 {
-#ifdef CONFIG_MMU
-	cf_bootmem_alloc();
-	mmu_context_init();
-#endif
 	mach_reset = mcf54xx_reset;
 	mach_sched_init = hw_timer_init;
 	m54xx_uarts_init();

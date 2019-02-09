@@ -808,6 +808,7 @@ static int vfio_exp_config_write(struct vfio_pci_device *vdev, int pos,
 {
 	__le16 *ctrl = (__le16 *)(vdev->vconfig + pos -
 				  offset + PCI_EXP_DEVCTL);
+	int readrq = le16_to_cpu(*ctrl) & PCI_EXP_DEVCTL_READRQ;
 
 	count = vfio_default_config_write(vdev, pos, count, perm, offset, val);
 	if (count < 0)
@@ -833,6 +834,27 @@ static int vfio_exp_config_write(struct vfio_pci_device *vdev, int pos,
 			pci_try_reset_function(vdev->pdev);
 	}
 
+	/*
+	 * MPS is virtualized to the user, writes do not change the physical
+	 * register since determining a proper MPS value requires a system wide
+	 * device view.  The MRRS is largely independent of MPS, but since the
+	 * user does not have that system-wide view, they might set a safe, but
+	 * inefficiently low value.  Here we allow writes through to hardware,
+	 * but we set the floor to the physical device MPS setting, so that
+	 * we can at least use full TLPs, as defined by the MPS value.
+	 *
+	 * NB, if any devices actually depend on an artificially low MRRS
+	 * setting, this will need to be revisited, perhaps with a quirk
+	 * though pcie_set_readrq().
+	 */
+	if (readrq != (le16_to_cpu(*ctrl) & PCI_EXP_DEVCTL_READRQ)) {
+		readrq = 128 <<
+			((le16_to_cpu(*ctrl) & PCI_EXP_DEVCTL_READRQ) >> 12);
+		readrq = max(readrq, pcie_get_mps(vdev->pdev));
+
+		pcie_set_readrq(vdev->pdev, readrq);
+	}
+
 	return count;
 }
 
@@ -849,11 +871,14 @@ static int __init init_pci_cap_exp_perm(struct perm_bits *perm)
 
 	/*
 	 * Allow writes to device control fields, except devctl_phantom,
-	 * which could confuse IOMMU, and the ARI bit in devctl2, which
-	 * is set at probe time.  FLR gets virtualized via our writefn.
+	 * which could confuse IOMMU, MPS, which can break communication
+	 * with other physical devices, and the ARI bit in devctl2, which
+	 * is set at probe time.  FLR and MRRS get virtualized via our
+	 * writefn.
 	 */
 	p_setw(perm, PCI_EXP_DEVCTL,
-	       PCI_EXP_DEVCTL_BCR_FLR, ~PCI_EXP_DEVCTL_PHANTOM);
+	       PCI_EXP_DEVCTL_BCR_FLR | PCI_EXP_DEVCTL_PAYLOAD |
+	       PCI_EXP_DEVCTL_READRQ, ~PCI_EXP_DEVCTL_PHANTOM);
 	p_setw(perm, PCI_EXP_DEVCTL2, NO_VIRT, ~PCI_EXP_DEVCTL2_ARI);
 	return 0;
 }
@@ -1155,8 +1180,10 @@ static int vfio_msi_cap_len(struct vfio_pci_device *vdev, u8 pos)
 		return -ENOMEM;
 
 	ret = init_pci_cap_msi_perm(vdev->msi_perm, len, flags);
-	if (ret)
+	if (ret) {
+		kfree(vdev->msi_perm);
 		return ret;
+	}
 
 	return len;
 }
@@ -1585,6 +1612,15 @@ static int vfio_ecap_init(struct vfio_pci_device *vdev)
 }
 
 /*
+ * Nag about hardware bugs, hopefully to have vendors fix them, but at least
+ * to collect a list of dependencies for the VF INTx pin quirk below.
+ */
+static const struct pci_device_id known_bogus_vf_intx_pin[] = {
+	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, 0x270c) },
+	{}
+};
+
+/*
  * For each device we allocate a pci_config_map that indicates the
  * capability occupying each dword and thus the struct perm_bits we
  * use for read and write.  We also allocate a virtualized config
@@ -1649,6 +1685,24 @@ int vfio_config_init(struct vfio_pci_device *vdev)
 	if (pdev->is_virtfn) {
 		*(__le16 *)&vconfig[PCI_VENDOR_ID] = cpu_to_le16(pdev->vendor);
 		*(__le16 *)&vconfig[PCI_DEVICE_ID] = cpu_to_le16(pdev->device);
+
+		/*
+		 * Per SR-IOV spec rev 1.1, 3.4.1.18 the interrupt pin register
+		 * does not apply to VFs and VFs must implement this register
+		 * as read-only with value zero.  Userspace is not readily able
+		 * to identify whether a device is a VF and thus that the pin
+		 * definition on the device is bogus should it violate this
+		 * requirement.  We already virtualize the pin register for
+		 * other purposes, so we simply need to replace the bogus value
+		 * and consider VFs when we determine INTx IRQ count.
+		 */
+		if (vconfig[PCI_INTERRUPT_PIN] &&
+		    !pci_match_id(known_bogus_vf_intx_pin, pdev))
+			pci_warn(pdev,
+				 "Hardware bug: VF reports bogus INTx pin %d\n",
+				 vconfig[PCI_INTERRUPT_PIN]);
+
+		vconfig[PCI_INTERRUPT_PIN] = 0; /* Gratuitous for good VFs */
 	}
 
 	if (!IS_ENABLED(CONFIG_VFIO_PCI_INTX) || vdev->nointx)

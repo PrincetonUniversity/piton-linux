@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
+
 /*
  * Xen leaves the responsibility for maintaining p2m mappings to the
  * guests themselves, but it must also access and update the p2m array
@@ -65,7 +67,7 @@
 #include <linux/hash.h>
 #include <linux/sched.h>
 #include <linux/seq_file.h>
-#include <linux/bootmem.h>
+#include <linux/memblock.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 
@@ -180,7 +182,7 @@ static void p2m_init_identity(unsigned long *p2m, unsigned long pfn)
 static void * __ref alloc_p2m_page(void)
 {
 	if (unlikely(!slab_is_available()))
-		return alloc_bootmem_align(PAGE_SIZE, PAGE_SIZE);
+		return memblock_alloc(PAGE_SIZE, PAGE_SIZE);
 
 	return (void *)__get_free_page(GFP_KERNEL);
 }
@@ -188,7 +190,7 @@ static void * __ref alloc_p2m_page(void)
 static void __ref free_p2m_page(void *p)
 {
 	if (unlikely(!slab_is_available())) {
-		free_bootmem((unsigned long)p, PAGE_SIZE);
+		memblock_free((unsigned long)p, PAGE_SIZE);
 		return;
 	}
 
@@ -547,7 +549,7 @@ int xen_alloc_p2m_entry(unsigned long pfn)
 	if (p2m_top_mfn && pfn < MAX_P2M_PFN) {
 		topidx = p2m_top_index(pfn);
 		top_mfn_p = &p2m_top_mfn[topidx];
-		mid_mfn = ACCESS_ONCE(p2m_top_mfn_p[topidx]);
+		mid_mfn = READ_ONCE(p2m_top_mfn_p[topidx]);
 
 		BUG_ON(virt_to_mfn(mid_mfn) != *top_mfn_p);
 
@@ -654,8 +656,7 @@ bool __set_phys_to_machine(unsigned long pfn, unsigned long mfn)
 
 	/*
 	 * The interface requires atomic updates on p2m elements.
-	 * xen_safe_write_ulong() is using __put_user which does an atomic
-	 * store via asm().
+	 * xen_safe_write_ulong() is using an atomic store via asm().
 	 */
 	if (likely(!xen_safe_write_ulong(xen_p2m_addr + pfn, mfn)))
 		return true;
@@ -693,6 +694,9 @@ int set_foreign_p2m_mapping(struct gnttab_map_grant_ref *map_ops,
 {
 	int i, ret = 0;
 	pte_t *pte;
+
+	if (xen_feature(XENFEAT_auto_translated_physmap))
+		return 0;
 
 	if (kmap_ops) {
 		ret = HYPERVISOR_grant_table_op(GNTTABOP_map_grant_ref,
@@ -735,6 +739,9 @@ int clear_foreign_p2m_mapping(struct gnttab_unmap_grant_ref *unmap_ops,
 			      struct page **pages, unsigned int count)
 {
 	int i, ret = 0;
+
+	if (xen_feature(XENFEAT_auto_translated_physmap))
+		return 0;
 
 	for (i = 0; i < count; i++) {
 		unsigned long mfn = __pfn_to_mfn(page_to_pfn(pages[i]));

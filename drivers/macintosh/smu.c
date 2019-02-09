@@ -23,7 +23,7 @@
 #include <linux/kernel.h>
 #include <linux/device.h>
 #include <linux/dmapool.h>
-#include <linux/bootmem.h>
+#include <linux/memblock.h>
 #include <linux/vmalloc.h>
 #include <linux/highmem.h>
 #include <linux/jiffies.h>
@@ -38,7 +38,6 @@
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
 #include <linux/slab.h>
-#include <linux/memblock.h>
 #include <linux/sched/signal.h>
 
 #include <asm/byteorder.h>
@@ -103,7 +102,7 @@ static DEFINE_MUTEX(smu_part_access);
 static int smu_irq_inited;
 static unsigned long smu_cmdbuf_abs;
 
-static void smu_i2c_retry(unsigned long data);
+static void smu_i2c_retry(struct timer_list *t);
 
 /*
  * SMU driver low level stuff
@@ -493,7 +492,7 @@ int __init smu_init (void)
 		goto fail_np;
 	}
 
-	smu = alloc_bootmem(sizeof(struct smu_device));
+	smu = memblock_alloc(sizeof(struct smu_device), SMP_CACHE_BYTES);
 
 	spin_lock_init(&smu->lock);
 	INIT_LIST_HEAD(&smu->cmd_list);
@@ -569,7 +568,7 @@ fail_msg_node:
 fail_db_node:
 	of_node_put(smu->db_node);
 fail_bootmem:
-	free_bootmem(__pa(smu), sizeof(struct smu_device));
+	memblock_free(__pa(smu), sizeof(struct smu_device));
 	smu = NULL;
 fail_np:
 	of_node_put(np);
@@ -582,9 +581,7 @@ static int smu_late_init(void)
 	if (!smu)
 		return 0;
 
-	init_timer(&smu->i2c_timer);
-	smu->i2c_timer.function = smu_i2c_retry;
-	smu->i2c_timer.data = (unsigned long)smu;
+	timer_setup(&smu->i2c_timer, smu_i2c_retry, 0);
 
 	if (smu->db_node) {
 		smu->db_irq = irq_of_parse_and_map(smu->db_node, 0);
@@ -755,7 +752,7 @@ static void smu_i2c_complete_command(struct smu_i2c_cmd *cmd, int fail)
 }
 
 
-static void smu_i2c_retry(unsigned long data)
+static void smu_i2c_retry(struct timer_list *unused)
 {
 	struct smu_i2c_cmd	*cmd = smu->cmd_i2c_cur;
 
@@ -795,7 +792,7 @@ static void smu_i2c_low_completion(struct smu_cmd *scmd, void *misc)
 		BUG_ON(cmd != smu->cmd_i2c_cur);
 		if (!smu_irq_inited) {
 			mdelay(5);
-			smu_i2c_retry(0);
+			smu_i2c_retry(NULL);
 			return;
 		}
 		mod_timer(&smu->i2c_timer, jiffies + msecs_to_jiffies(5));
@@ -1247,10 +1244,10 @@ static ssize_t smu_read(struct file *file, char __user *buf,
 	return -EBADFD;
 }
 
-static unsigned int smu_fpoll(struct file *file, poll_table *wait)
+static __poll_t smu_fpoll(struct file *file, poll_table *wait)
 {
 	struct smu_private *pp = file->private_data;
-	unsigned int mask = 0;
+	__poll_t mask = 0;
 	unsigned long flags;
 
 	if (pp == 0)
@@ -1261,7 +1258,7 @@ static unsigned int smu_fpoll(struct file *file, poll_table *wait)
 
 		spin_lock_irqsave(&pp->lock, flags);
 		if (pp->busy && pp->cmd.status != 1)
-			mask |= POLLIN;
+			mask |= EPOLLIN;
 		spin_unlock_irqrestore(&pp->lock, flags);
 	}
 	if (pp->mode == smu_file_events) {

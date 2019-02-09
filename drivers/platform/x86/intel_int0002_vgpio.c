@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Intel INT0002 "Virtual GPIO" driver
  *
@@ -8,10 +9,6 @@
  * Copyright (c) 2014, Intel Corporation.
  *
  * Author: Dyut Kumar Sil <dyut.k.sil@intel.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  *
  * Some peripherals on Bay Trail and Cherry Trail platforms signal a Power
  * Management Event (PME) to the Power Management Controller (PMC) to wakeup
@@ -57,11 +54,7 @@
 #define ICPU(model)	{ X86_VENDOR_INTEL, 6, model, X86_FEATURE_ANY, }
 
 static const struct x86_cpu_id int0002_cpu_ids[] = {
-/*
- * Limit ourselves to Cherry Trail for now, until testing shows we
- * need to handle the INT0002 device on Baytrail too.
- *	ICPU(INTEL_FAM6_ATOM_SILVERMONT1),	 * Valleyview, Bay Trail *
- */
+	ICPU(INTEL_FAM6_ATOM_SILVERMONT),	/* Valleyview, Bay Trail  */
 	ICPU(INTEL_FAM6_ATOM_AIRMONT),		/* Braswell, Cherry Trail */
 	{}
 };
@@ -110,6 +103,21 @@ static void int0002_irq_mask(struct irq_data *data)
 	outl(gpe_en_reg, GPE0A_EN_PORT);
 }
 
+static int int0002_irq_set_wake(struct irq_data *data, unsigned int on)
+{
+	struct gpio_chip *chip = irq_data_get_irq_chip_data(data);
+	struct platform_device *pdev = to_platform_device(chip->parent);
+	int irq = platform_get_irq(pdev, 0);
+
+	/* Propagate to parent irq */
+	if (on)
+		enable_irq_wake(irq);
+	else
+		disable_irq_wake(irq);
+
+	return 0;
+}
+
 static irqreturn_t int0002_irq(int irq, void *data)
 {
 	struct gpio_chip *chip = data;
@@ -119,7 +127,7 @@ static irqreturn_t int0002_irq(int irq, void *data)
 	if (!(gpe_sts_reg & GPE0A_PME_B0_STS_BIT))
 		return IRQ_NONE;
 
-	generic_handle_irq(irq_find_mapping(chip->irqdomain,
+	generic_handle_irq(irq_find_mapping(chip->irq.domain,
 					    GPE0A_PME_B0_VIRT_GPIO_PIN));
 
 	pm_system_wakeup();
@@ -132,6 +140,7 @@ static struct irq_chip int0002_irqchip = {
 	.irq_ack		= int0002_irq_ack,
 	.irq_mask		= int0002_irq_mask,
 	.irq_unmask		= int0002_irq_unmask,
+	.irq_set_wake		= int0002_irq_set_wake,
 };
 
 static int int0002_probe(struct platform_device *pdev)
@@ -165,7 +174,7 @@ static int int0002_probe(struct platform_device *pdev)
 	chip->direction_output = int0002_gpio_direction_output;
 	chip->base = -1;
 	chip->ngpio = GPE0A_PME_B0_VIRT_GPIO_PIN + 1;
-	chip->irq_need_valid_mask = true;
+	chip->irq.need_valid_mask = true;
 
 	ret = devm_gpiochip_add_data(&pdev->dev, chip, NULL);
 	if (ret) {
@@ -173,14 +182,14 @@ static int int0002_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	bitmap_clear(chip->irq_valid_mask, 0, GPE0A_PME_B0_VIRT_GPIO_PIN);
+	bitmap_clear(chip->irq.valid_mask, 0, GPE0A_PME_B0_VIRT_GPIO_PIN);
 
 	/*
 	 * We manually request the irq here instead of passing a flow-handler
 	 * to gpiochip_set_chained_irqchip, because the irq is shared.
 	 */
 	ret = devm_request_irq(dev, irq, int0002_irq,
-			       IRQF_SHARED | IRQF_NO_THREAD, "INT0002", chip);
+			       IRQF_SHARED, "INT0002", chip);
 	if (ret) {
 		dev_err(dev, "Error requesting IRQ %d: %d\n", irq, ret);
 		return ret;
@@ -216,4 +225,4 @@ module_platform_driver(int0002_driver);
 
 MODULE_AUTHOR("Hans de Goede <hdegoede@redhat.com>");
 MODULE_DESCRIPTION("Intel INT0002 Virtual GPIO driver");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");

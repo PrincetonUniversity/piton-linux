@@ -16,6 +16,7 @@
 #include <linux/slab.h>
 #include <linux/compat.h>
 #include <linux/uaccess.h>
+#include <linux/iversion.h>
 #include "fat.h"
 
 /*
@@ -291,7 +292,6 @@ static int fat_parse_long(struct inode *dir, loff_t *pos,
 		}
 	}
 parse_long:
-	slots = 0;
 	ds = (struct msdos_dir_slot *)*de;
 	id = ds->id;
 	if (!(id & 0x40))
@@ -369,7 +369,9 @@ static int fat_parse_short(struct super_block *sb,
 	}
 
 	memcpy(work, de->name, sizeof(work));
-	/* see namei.c, msdos_format_name */
+	/* For an explanation of the special treatment of 0x05 in
+	 * filenames, see msdos_format_name in namei_msdos.c
+	 */
 	if (work[0] == 0x05)
 		work[0] = 0xE5;
 
@@ -1056,7 +1058,7 @@ int fat_remove_entries(struct inode *dir, struct fat_slot_info *sinfo)
 	brelse(bh);
 	if (err)
 		return err;
-	dir->i_version++;
+	inode_inc_iversion(dir);
 
 	if (nr_slots) {
 		/*
@@ -1071,7 +1073,7 @@ int fat_remove_entries(struct inode *dir, struct fat_slot_info *sinfo)
 		}
 	}
 
-	dir->i_mtime = dir->i_atime = current_time(dir);
+	fat_truncate_time(dir, NULL, S_ATIME|S_MTIME);
 	if (IS_DIRSYNC(dir))
 		(void)fat_sync_inode(dir);
 	else
@@ -1130,7 +1132,7 @@ error:
 	return err;
 }
 
-int fat_alloc_new_dir(struct inode *dir, struct timespec *ts)
+int fat_alloc_new_dir(struct inode *dir, struct timespec64 *ts)
 {
 	struct super_block *sb = dir->i_sb;
 	struct msdos_sb_info *sbi = MSDOS_SB(sb);

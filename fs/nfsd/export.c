@@ -46,7 +46,7 @@ static void expkey_put(struct kref *ref)
 	    !test_bit(CACHE_NEGATIVE, &key->h.flags))
 		path_put(&key->ek_path);
 	auth_domain_put(key->ek_client);
-	kfree(key);
+	kfree_rcu(key, ek_rcu);
 }
 
 static void expkey_request(struct cache_detail *cd,
@@ -232,7 +232,7 @@ static struct cache_head *expkey_alloc(void)
 		return NULL;
 }
 
-static struct cache_detail svc_expkey_cache_template = {
+static const struct cache_detail svc_expkey_cache_template = {
 	.owner		= THIS_MODULE,
 	.hash_size	= EXPKEY_HASHMAX,
 	.name		= "nfsd.fh",
@@ -265,7 +265,7 @@ svc_expkey_lookup(struct cache_detail *cd, struct svc_expkey *item)
 	struct cache_head *ch;
 	int hash = svc_expkey_hash(item);
 
-	ch = sunrpc_cache_lookup(cd, &item->h, hash);
+	ch = sunrpc_cache_lookup_rcu(cd, &item->h, hash);
 	if (ch)
 		return container_of(ch, struct svc_expkey, h);
 	else
@@ -314,7 +314,7 @@ static void svc_export_put(struct kref *ref)
 	auth_domain_put(exp->ex_client);
 	nfsd4_fslocs_free(&exp->ex_fslocs);
 	kfree(exp->ex_uuid);
-	kfree(exp);
+	kfree_rcu(exp, ex_rcu);
 }
 
 static void svc_export_request(struct cache_detail *cd,
@@ -404,8 +404,9 @@ fsloc_parse(char **mesg, char *buf, struct nfsd4_fs_locations *fsloc)
 	if (fsloc->locations_count == 0)
 		return 0;
 
-	fsloc->locations = kzalloc(fsloc->locations_count
-			* sizeof(struct nfsd4_fs_location), GFP_KERNEL);
+	fsloc->locations = kcalloc(fsloc->locations_count,
+				   sizeof(struct nfsd4_fs_location),
+				   GFP_KERNEL);
 	if (!fsloc->locations)
 		return -ENOMEM;
 	for (i=0; i < fsloc->locations_count; i++) {
@@ -748,7 +749,7 @@ static struct cache_head *svc_export_alloc(void)
 		return NULL;
 }
 
-static struct cache_detail svc_export_cache_template = {
+static const struct cache_detail svc_export_cache_template = {
 	.owner		= THIS_MODULE,
 	.hash_size	= EXPORT_HASHMAX,
 	.name		= "nfsd.export",
@@ -779,7 +780,7 @@ svc_export_lookup(struct svc_export *exp)
 	struct cache_head *ch;
 	int hash = svc_export_hash(exp);
 
-	ch = sunrpc_cache_lookup(exp->cd, &exp->h, hash);
+	ch = sunrpc_cache_lookup_rcu(exp->cd, &exp->h, hash);
 	if (ch)
 		return container_of(ch, struct svc_export, h);
 	else
@@ -1215,9 +1216,9 @@ static int e_show(struct seq_file *m, void *p)
 }
 
 const struct seq_operations nfs_exports_op = {
-	.start	= cache_seq_start,
-	.next	= cache_seq_next,
-	.stop	= cache_seq_stop,
+	.start	= cache_seq_start_rcu,
+	.next	= cache_seq_next_rcu,
+	.stop	= cache_seq_stop_rcu,
 	.show	= e_show,
 };
 
@@ -1230,7 +1231,7 @@ nfsd_export_init(struct net *net)
 	int rv;
 	struct nfsd_net *nn = net_generic(net, nfsd_net_id);
 
-	dprintk("nfsd: initializing export module (net: %p).\n", net);
+	dprintk("nfsd: initializing export module (net: %x).\n", net->ns.inum);
 
 	nn->svc_export_cache = cache_create_net(&svc_export_cache_template, net);
 	if (IS_ERR(nn->svc_export_cache))
@@ -1278,7 +1279,7 @@ nfsd_export_shutdown(struct net *net)
 {
 	struct nfsd_net *nn = net_generic(net, nfsd_net_id);
 
-	dprintk("nfsd: shutting down export module (net: %p).\n", net);
+	dprintk("nfsd: shutting down export module (net: %x).\n", net->ns.inum);
 
 	cache_unregister_net(nn->svc_expkey_cache, net);
 	cache_unregister_net(nn->svc_export_cache, net);
@@ -1286,5 +1287,5 @@ nfsd_export_shutdown(struct net *net)
 	cache_destroy_net(nn->svc_export_cache, net);
 	svcauth_unix_purge(net);
 
-	dprintk("nfsd: export shutdown complete (net: %p).\n", net);
+	dprintk("nfsd: export shutdown complete (net: %x).\n", net->ns.inum);
 }

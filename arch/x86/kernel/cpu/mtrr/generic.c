@@ -798,7 +798,7 @@ static void generic_set_all(void)
 	local_irq_restore(flags);
 
 	/* Use the atomic bitops to update the global mask */
-	for (count = 0; count < sizeof mask * 8; ++count) {
+	for (count = 0; count < sizeof(mask) * 8; ++count) {
 		if (mask & 0x01)
 			set_bit(count, &smp_changes_mask);
 		mask >>= 1;
@@ -859,7 +859,7 @@ int generic_validate_add_page(unsigned long base, unsigned long size,
 	 */
 	if (is_cpu(INTEL) && boot_cpu_data.x86 == 6 &&
 	    boot_cpu_data.x86_model == 1 &&
-	    boot_cpu_data.x86_mask <= 7) {
+	    boot_cpu_data.x86_stepping <= 7) {
 		if (base & ((1 << (22 - PAGE_SHIFT)) - 1)) {
 			pr_warn("mtrr: base(0x%lx000) is not 4 MiB aligned\n", base);
 			return -EINVAL;

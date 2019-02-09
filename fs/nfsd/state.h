@@ -36,6 +36,7 @@
 #define _NFSD4_STATE_H
 
 #include <linux/idr.h>
+#include <linux/refcount.h>
 #include <linux/sunrpc/svc_xprt.h>
 #include "nfsfh.h"
 
@@ -83,7 +84,7 @@ struct nfsd4_callback_ops {
  * fields that are of general use to any stateid.
  */
 struct nfs4_stid {
-	atomic_t		sc_count;
+	refcount_t		sc_count;
 #define NFS4_OPEN_STID 1
 #define NFS4_LOCK_STID 2
 #define NFS4_DELEG_STID 4
@@ -169,11 +170,13 @@ static inline struct nfs4_delegation *delegstateid(struct nfs4_stid *s)
 struct nfsd4_slot {
 	u32	sl_seqid;
 	__be32	sl_status;
+	struct svc_cred sl_cred;
 	u32	sl_datalen;
 	u16	sl_opcnt;
 #define NFSD4_SLOT_INUSE	(1 << 0)
 #define NFSD4_SLOT_CACHETHIS	(1 << 1)
 #define NFSD4_SLOT_INITIALIZED	(1 << 2)
+#define NFSD4_SLOT_CACHED	(1 << 3)
 	u8	sl_flags;
 	char	sl_data[];
 };
@@ -352,6 +355,8 @@ struct nfs4_client {
 	struct rpc_wait_queue	cl_cb_waitq;	/* backchannel callers may */
 						/* wait here for slots */
 	struct net		*net;
+	struct list_head	async_copies;	/* list of async copies */
+	spinlock_t		async_lock;	/* lock for async copies */
 };
 
 /* struct nfs4_client_reset
@@ -465,7 +470,7 @@ struct nfs4_clnt_odstate {
 	struct nfs4_client	*co_client;
 	struct nfs4_file	*co_file;
 	struct list_head	co_perfile;
-	atomic_t		co_odcount;
+	refcount_t		co_odcount;
 };
 
 /*
@@ -481,7 +486,7 @@ struct nfs4_clnt_odstate {
  * the global state_lock spinlock.
  */
 struct nfs4_file {
-	atomic_t		fi_ref;
+	refcount_t		fi_ref;
 	spinlock_t		fi_lock;
 	struct hlist_node       fi_hash;	/* hash on fi_fhandle */
 	struct list_head        fi_stateids;
@@ -570,6 +575,7 @@ enum nfsd4_cb_op {
 	NFSPROC4_CLNT_CB_NULL = 0,
 	NFSPROC4_CLNT_CB_RECALL,
 	NFSPROC4_CLNT_CB_LAYOUT,
+	NFSPROC4_CLNT_CB_OFFLOAD,
 	NFSPROC4_CLNT_CB_SEQUENCE,
 	NFSPROC4_CLNT_CB_NOTIFY_LOCK,
 };
@@ -596,6 +602,7 @@ struct nfsd4_blocked_lock {
 
 struct nfsd4_compound_state;
 struct nfsd_net;
+struct nfsd4_copy;
 
 extern __be32 nfs4_preprocess_stateid_op(struct svc_rqst *rqstp,
 		struct nfsd4_compound_state *cstate, struct svc_fh *fhp,
@@ -605,6 +612,8 @@ __be32 nfsd4_lookup_stateid(struct nfsd4_compound_state *cstate,
 		     struct nfs4_stid **s, struct nfsd_net *nn);
 struct nfs4_stid *nfs4_alloc_stid(struct nfs4_client *cl, struct kmem_cache *slab,
 				  void (*sc_free)(struct nfs4_stid *));
+int nfs4_init_cp_state(struct nfsd_net *nn, struct nfsd4_copy *copy);
+void nfs4_free_cp_state(struct nfsd4_copy *copy);
 void nfs4_unhash_stid(struct nfs4_stid *s);
 void nfs4_put_stid(struct nfs4_stid *s);
 void nfs4_inc_and_copy_stateid(stateid_t *dst, struct nfs4_stid *stid);
@@ -614,8 +623,6 @@ extern struct nfs4_client_reclaim *nfsd4_find_reclaim_client(const char *recdir,
 							struct nfsd_net *nn);
 extern __be32 nfs4_check_open_reclaim(clientid_t *clid,
 		struct nfsd4_compound_state *cstate, struct nfsd_net *nn);
-extern int set_callback_cred(void);
-extern void cleanup_callback_cred(void);
 extern void nfsd4_probe_callback(struct nfs4_client *clp);
 extern void nfsd4_probe_callback_sync(struct nfs4_client *clp);
 extern void nfsd4_change_callback(struct nfs4_client *clp, struct nfs4_cb_conn *);
@@ -625,6 +632,7 @@ extern void nfsd4_run_cb(struct nfsd4_callback *cb);
 extern int nfsd4_create_callback_queue(void);
 extern void nfsd4_destroy_callback_queue(void);
 extern void nfsd4_shutdown_callback(struct nfs4_client *);
+extern void nfsd4_shutdown_copy(struct nfs4_client *clp);
 extern void nfsd4_prepare_cb_recall(struct nfs4_delegation *dp);
 extern struct nfs4_client_reclaim *nfs4_client_to_reclaim(const char *name,
 							struct nfsd_net *nn);
@@ -632,9 +640,12 @@ extern bool nfs4_has_reclaimed_state(const char *name, struct nfsd_net *nn);
 
 struct nfs4_file *find_file(struct knfsd_fh *fh);
 void put_nfs4_file(struct nfs4_file *fi);
+extern void nfs4_put_copy(struct nfsd4_copy *copy);
+extern struct nfsd4_copy *
+find_async_copy(struct nfs4_client *clp, stateid_t *staetid);
 static inline void get_nfs4_file(struct nfs4_file *fi)
 {
-	atomic_inc(&fi->fi_ref);
+	refcount_inc(&fi->fi_ref);
 }
 struct file *find_any_file(struct nfs4_file *f);
 

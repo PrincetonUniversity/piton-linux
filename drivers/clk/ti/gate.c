@@ -33,6 +33,7 @@ static const struct clk_ops omap_gate_clkdm_clk_ops = {
 	.init		= &omap2_init_clk_clkdm,
 	.enable		= &omap2_clkops_enable_clkdm,
 	.disable	= &omap2_clkops_disable_clkdm,
+	.restore_context = clk_gate_restore_context,
 };
 
 const struct clk_ops omap_gate_clk_ops = {
@@ -40,6 +41,7 @@ const struct clk_ops omap_gate_clk_ops = {
 	.enable		= &omap2_dflt_clk_enable,
 	.disable	= &omap2_dflt_clk_disable,
 	.is_enabled	= &omap2_dflt_clk_is_enabled,
+	.restore_context = clk_gate_restore_context,
 };
 
 static const struct clk_ops omap_gate_clk_hsdiv_restore_ops = {
@@ -47,6 +49,7 @@ static const struct clk_ops omap_gate_clk_hsdiv_restore_ops = {
 	.enable		= &omap36xx_gate_clk_enable_with_hsdiv_restore,
 	.disable	= &omap2_dflt_clk_disable,
 	.is_enabled	= &omap2_dflt_clk_is_enabled,
+	.restore_context = clk_gate_restore_context,
 };
 
 /**
@@ -128,53 +131,6 @@ static struct clk *_register_gate(struct device *dev, const char *name,
 	return clk;
 }
 
-#if defined(CONFIG_ARCH_OMAP3) && defined(CONFIG_ATAGS)
-struct clk *ti_clk_register_gate(struct ti_clk *setup)
-{
-	const struct clk_ops *ops = &omap_gate_clk_ops;
-	const struct clk_hw_omap_ops *hw_ops = NULL;
-	struct clk_omap_reg reg;
-	u32 flags = 0;
-	u8 clk_gate_flags = 0;
-	struct ti_clk_gate *gate;
-
-	gate = setup->data;
-
-	if (gate->flags & CLKF_INTERFACE)
-		return ti_clk_register_interface(setup);
-
-	if (gate->flags & CLKF_SET_RATE_PARENT)
-		flags |= CLK_SET_RATE_PARENT;
-
-	if (gate->flags & CLKF_SET_BIT_TO_DISABLE)
-		clk_gate_flags |= INVERT_ENABLE;
-
-	if (gate->flags & CLKF_HSDIV) {
-		ops = &omap_gate_clk_hsdiv_restore_ops;
-		hw_ops = &clkhwops_wait;
-	}
-
-	if (gate->flags & CLKF_DSS)
-		hw_ops = &clkhwops_omap3430es2_dss_usbhost_wait;
-
-	if (gate->flags & CLKF_WAIT)
-		hw_ops = &clkhwops_wait;
-
-	if (gate->flags & CLKF_CLKDM)
-		ops = &omap_gate_clkdm_clk_ops;
-
-	if (gate->flags & CLKF_AM35XX)
-		hw_ops = &clkhwops_am35xx_ipss_module_wait;
-
-	reg.index = gate->module;
-	reg.offset = gate->reg;
-	reg.ptr = NULL;
-
-	return _register_gate(NULL, setup->name, gate->parent, flags,
-			      &reg, gate->bit_shift,
-			      clk_gate_flags, ops, hw_ops);
-}
-
 struct clk_hw *ti_clk_build_component_gate(struct ti_clk_gate *setup)
 {
 	struct clk_hw_omap *gate;
@@ -204,7 +160,6 @@ struct clk_hw *ti_clk_build_component_gate(struct ti_clk_gate *setup)
 
 	return &gate->hw;
 }
-#endif
 
 static void __init _of_ti_gate_clk_setup(struct device_node *node,
 					 const struct clk_ops *ops,
@@ -227,7 +182,7 @@ static void __init _of_ti_gate_clk_setup(struct device_node *node,
 	}
 
 	if (of_clk_get_parent_count(node) != 1) {
-		pr_err("%s must have 1 parent\n", node->name);
+		pr_err("%pOFn must have 1 parent\n", node);
 		return;
 	}
 

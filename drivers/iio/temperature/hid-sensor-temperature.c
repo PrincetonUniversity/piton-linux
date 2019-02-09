@@ -76,7 +76,8 @@ static int temperature_read_raw(struct iio_dev *indio_dev,
 			HID_USAGE_SENSOR_TEMPERATURE,
 			HID_USAGE_SENSOR_DATA_ENVIRONMENTAL_TEMPERATURE,
 			temp_st->temperature_attr.report_id,
-			SENSOR_HUB_SYNC);
+			SENSOR_HUB_SYNC,
+			temp_st->temperature_attr.logical_minimum < 0);
 		hid_sensor_power_state(
 				&temp_st->common_attributes,
 				false);
@@ -123,7 +124,6 @@ static int temperature_write_raw(struct iio_dev *indio_dev,
 }
 
 static const struct iio_info temperature_info = {
-	.driver_module = THIS_MODULE,
 	.read_raw = &temperature_read_raw,
 	.write_raw = &temperature_write_raw,
 };

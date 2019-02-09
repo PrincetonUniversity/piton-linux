@@ -1,7 +1,6 @@
 config TYPEC_UCSI
 	tristate "USB Type-C Connector System Software Interface driver"
 	depends on !CPU_BIG_ENDIAN
-	select TYPEC
 	help
 	  USB Type-C Connector System Software Interface (UCSI) is a
 	  specification for an interface that allows the operating system to
@@ -23,6 +22,16 @@ config TYPEC_UCSI
 	  called typec_ucsi.
 
 if TYPEC_UCSI
+
+config UCSI_CCG
+	tristate "UCSI Interface Driver for Cypress CCGx"
+	depends on I2C
+	help
+	  This driver enables UCSI support on platforms that expose a
+	  Cypress CCGx Type-C controller over I2C interface.
+
+	  To compile the driver as a module, choose M here: the module will be
+	  called ucsi_ccg.
 
 config UCSI_ACPI
 	tristate "UCSI ACPI Interface Driver"

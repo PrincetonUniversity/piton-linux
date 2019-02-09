@@ -571,12 +571,17 @@ static irqreturn_t cp_interrupt (int irq, void *dev_instance)
 	struct cp_private *cp;
 	int handled = 0;
 	u16 status;
+	u16 mask;
 
 	if (unlikely(dev == NULL))
 		return IRQ_NONE;
 	cp = netdev_priv(dev);
 
 	spin_lock(&cp->lock);
+
+	mask = cpr16(IntrMask);
+	if (!mask)
+		goto out_unlock;
 
 	status = cpr16(IntrStatus);
 	if (!status || (status == 0xFFFF))
@@ -748,8 +753,8 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
 	mss = skb_shinfo(skb)->gso_size;
 
 	if (mss > MSSMask) {
-		WARN_ONCE(1, "Net bug: GSO size %d too large for 8139CP\n",
-			  mss);
+		netdev_WARN_ONCE(dev, "Net bug: GSO size %d too large for 8139CP\n",
+				 mss);
 		goto out_dma_error;
 	}
 

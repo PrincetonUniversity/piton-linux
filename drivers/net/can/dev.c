@@ -27,6 +27,7 @@
 #include <linux/can/skb.h>
 #include <linux/can/netlink.h>
 #include <linux/can/led.h>
+#include <linux/of.h>
 #include <net/rtnetlink.h>
 
 #define MOD_DESC "CAN device driver interface"
@@ -411,7 +412,7 @@ EXPORT_SYMBOL_GPL(can_change_state);
  * Local echo of CAN messages
  *
  * CAN network devices *should* support a local echo functionality
- * (see Documentation/networking/can.txt). To test the handling of CAN
+ * (see Documentation/networking/can.rst). To test the handling of CAN
  * interfaces that do not support the local echo both driver types are
  * implemented. In the case that the driver does not support the echo
  * the IFF_ECHO remains clear in dev->flags. This causes the PF_CAN core
@@ -476,6 +477,34 @@ void can_put_echo_skb(struct sk_buff *skb, struct net_device *dev,
 }
 EXPORT_SYMBOL_GPL(can_put_echo_skb);
 
+struct sk_buff *__can_get_echo_skb(struct net_device *dev, unsigned int idx, u8 *len_ptr)
+{
+	struct can_priv *priv = netdev_priv(dev);
+	struct sk_buff *skb = priv->echo_skb[idx];
+	struct canfd_frame *cf;
+
+	if (idx >= priv->echo_skb_max) {
+		netdev_err(dev, "%s: BUG! Trying to access can_priv::echo_skb out of bounds (%u/max %u)\n",
+			   __func__, idx, priv->echo_skb_max);
+		return NULL;
+	}
+
+	if (!skb) {
+		netdev_err(dev, "%s: BUG! Trying to echo non existing skb: can_priv::echo_skb[%u]\n",
+			   __func__, idx);
+		return NULL;
+	}
+
+	/* Using "struct canfd_frame::len" for the frame
+	 * length is supported on both CAN and CANFD frames.
+	 */
+	cf = (struct canfd_frame *)skb->data;
+	*len_ptr = cf->len;
+	priv->echo_skb[idx] = NULL;
+
+	return skb;
+}
+
 /*
  * Get the skb from the stack and loop it back locally
  *
@@ -485,22 +514,16 @@ EXPORT_SYMBOL_GPL(can_put_echo_skb);
  */
 unsigned int can_get_echo_skb(struct net_device *dev, unsigned int idx)
 {
-	struct can_priv *priv = netdev_priv(dev);
+	struct sk_buff *skb;
+	u8 len;
 
-	BUG_ON(idx >= priv->echo_skb_max);
+	skb = __can_get_echo_skb(dev, idx, &len);
+	if (!skb)
+		return 0;
 
-	if (priv->echo_skb[idx]) {
-		struct sk_buff *skb = priv->echo_skb[idx];
-		struct can_frame *cf = (struct can_frame *)skb->data;
-		u8 dlc = cf->can_dlc;
+	netif_rx(skb);
 
-		netif_rx(priv->echo_skb[idx]);
-		priv->echo_skb[idx] = NULL;
-
-		return dlc;
-	}
-
-	return 0;
+	return len;
 }
 EXPORT_SYMBOL_GPL(can_get_echo_skb);
 
@@ -604,7 +627,7 @@ void can_bus_off(struct net_device *dev)
 {
 	struct can_priv *priv = netdev_priv(dev);
 
-	netdev_dbg(dev, "bus-off\n");
+	netdev_info(dev, "bus-off\n");
 
 	netif_carrier_off(dev);
 
@@ -648,8 +671,7 @@ struct sk_buff *alloc_can_skb(struct net_device *dev, struct can_frame **cf)
 	can_skb_prv(skb)->ifindex = dev->ifindex;
 	can_skb_prv(skb)->skbcnt = 0;
 
-	*cf = skb_put(skb, sizeof(struct can_frame));
-	memset(*cf, 0, sizeof(struct can_frame));
+	*cf = skb_put_zero(skb, sizeof(struct can_frame));
 
 	return skb;
 }
@@ -677,8 +699,7 @@ struct sk_buff *alloc_canfd_skb(struct net_device *dev,
 	can_skb_prv(skb)->ifindex = dev->ifindex;
 	can_skb_prv(skb)->skbcnt = 0;
 
-	*cfd = skb_put(skb, sizeof(struct canfd_frame));
-	memset(*cfd, 0, sizeof(struct canfd_frame));
+	*cfd = skb_put_zero(skb, sizeof(struct canfd_frame));
 
 	return skb;
 }
@@ -702,7 +723,8 @@ EXPORT_SYMBOL_GPL(alloc_can_err_skb);
 /*
  * Allocate and setup space for the CAN network device
  */
-struct net_device *alloc_candev(int sizeof_priv, unsigned int echo_skb_max)
+struct net_device *alloc_candev_mqs(int sizeof_priv, unsigned int echo_skb_max,
+				    unsigned int txqs, unsigned int rxqs)
 {
 	struct net_device *dev;
 	struct can_priv *priv;
@@ -714,7 +736,8 @@ struct net_device *alloc_candev(int sizeof_priv, unsigned int echo_skb_max)
 	else
 		size = sizeof_priv;
 
-	dev = alloc_netdev(size, "can%d", NET_NAME_UNKNOWN, can_setup);
+	dev = alloc_netdev_mqs(size, "can%d", NET_NAME_UNKNOWN, can_setup,
+			       txqs, rxqs);
 	if (!dev)
 		return NULL;
 
@@ -733,7 +756,7 @@ struct net_device *alloc_candev(int sizeof_priv, unsigned int echo_skb_max)
 
 	return dev;
 }
-EXPORT_SYMBOL_GPL(alloc_candev);
+EXPORT_SYMBOL_GPL(alloc_candev_mqs);
 
 /*
  * Free space of the CAN network device
@@ -813,6 +836,29 @@ int open_candev(struct net_device *dev)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(open_candev);
+
+#ifdef CONFIG_OF
+/* Common function that can be used to understand the limitation of
+ * a transceiver when it provides no means to determine these limitations
+ * at runtime.
+ */
+void of_can_transceiver(struct net_device *dev)
+{
+	struct device_node *dn;
+	struct can_priv *priv = netdev_priv(dev);
+	struct device_node *np = dev->dev.parent->of_node;
+	int ret;
+
+	dn = of_get_child_by_name(np, "can-transceiver");
+	if (!dn)
+		return;
+
+	ret = of_property_read_u32(dn, "max-bitrate", &priv->bitrate_max);
+	if ((ret && ret != -EINVAL) || (!ret && !priv->bitrate_max))
+		netdev_warn(dev, "Invalid value for transceiver max bitrate. Ignoring bitrate limit.\n");
+}
+EXPORT_SYMBOL_GPL(of_can_transceiver);
+#endif
 
 /*
  * Common close function for cleanup before the device gets closed.
@@ -913,6 +959,13 @@ static int can_changelink(struct net_device *dev, struct nlattr *tb[],
 					priv->bitrate_const_cnt);
 		if (err)
 			return err;
+
+		if (priv->bitrate_max && bt.bitrate > priv->bitrate_max) {
+			netdev_err(dev, "arbitration bitrate surpasses transceiver capabilities of %d bps\n",
+				   priv->bitrate_max);
+			return -EINVAL;
+		}
+
 		memcpy(&priv->bittiming, &bt, sizeof(bt));
 
 		if (priv->do_set_bittiming) {
@@ -997,6 +1050,13 @@ static int can_changelink(struct net_device *dev, struct nlattr *tb[],
 					priv->data_bitrate_const_cnt);
 		if (err)
 			return err;
+
+		if (priv->bitrate_max && dbt.bitrate > priv->bitrate_max) {
+			netdev_err(dev, "canfd data bitrate surpasses transceiver capabilities of %d bps\n",
+				   priv->bitrate_max);
+			return -EINVAL;
+		}
+
 		memcpy(&priv->data_bittiming, &dbt, sizeof(dbt));
 
 		if (priv->do_set_data_bittiming) {
@@ -1064,6 +1124,7 @@ static size_t can_get_size(const struct net_device *dev)
 	if (priv->data_bitrate_const)				/* IFLA_CAN_DATA_BITRATE_CONST */
 		size += nla_total_size(sizeof(*priv->data_bitrate_const) *
 				       priv->data_bitrate_const_cnt);
+	size += sizeof(priv->bitrate_max);			/* IFLA_CAN_BITRATE_MAX */
 
 	return size;
 }
@@ -1121,7 +1182,11 @@ static int can_fill_info(struct sk_buff *skb, const struct net_device *dev)
 	     nla_put(skb, IFLA_CAN_DATA_BITRATE_CONST,
 		     sizeof(*priv->data_bitrate_const) *
 		     priv->data_bitrate_const_cnt,
-		     priv->data_bitrate_const))
+		     priv->data_bitrate_const)) ||
+
+	    (nla_put(skb, IFLA_CAN_BITRATE_MAX,
+		     sizeof(priv->bitrate_max),
+		     &priv->bitrate_max))
 	    )
 
 		return -EMSGSIZE;

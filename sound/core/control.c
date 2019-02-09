@@ -25,6 +25,7 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/time.h>
+#include <linux/mm.h>
 #include <linux/sched/signal.h>
 #include <sound/core.h>
 #include <sound/minors.h>
@@ -104,7 +105,7 @@ static void snd_ctl_empty_read_queue(struct snd_ctl_file * ctl)
 {
 	unsigned long flags;
 	struct snd_kctl_event *cread;
-	
+
 	spin_lock_irqsave(&ctl->read_lock, flags);
 	while (!list_empty(&ctl->events)) {
 		cread = snd_kctl_event(ctl->events.next);
@@ -158,7 +159,7 @@ void snd_ctl_notify(struct snd_card *card, unsigned int mask,
 	unsigned long flags;
 	struct snd_ctl_file *ctl;
 	struct snd_kctl_event *ev;
-	
+
 	if (snd_BUG_ON(!card || !id))
 		return;
 	if (card->shutdown)
@@ -212,7 +213,7 @@ static int snd_ctl_new(struct snd_kcontrol **kctl, unsigned int count,
 {
 	unsigned int size;
 	unsigned int idx;
-	
+
 	if (count == 0 || count > MAX_CONTROL_COUNT)
 		return -EINVAL;
 
@@ -237,7 +238,7 @@ static int snd_ctl_new(struct snd_kcontrol **kctl, unsigned int count,
  * @ncontrol: the initialization record
  * @private_data: the private data to set
  *
- * Allocates a new struct snd_kcontrol instance and initialize from the given 
+ * Allocates a new struct snd_kcontrol instance and initialize from the given
  * template.  When the access field of ncontrol is 0, it's assumed as
  * READWRITE access. When the count field is 0, it's assumes as one.
  *
@@ -250,7 +251,7 @@ struct snd_kcontrol *snd_ctl_new1(const struct snd_kcontrol_new *ncontrol,
 	unsigned int count;
 	unsigned int access;
 	int err;
-	
+
 	if (snd_BUG_ON(!ncontrol || !ncontrol->info))
 		return NULL;
 
@@ -347,6 +348,40 @@ static int snd_ctl_find_hole(struct snd_card *card, unsigned int count)
 	return 0;
 }
 
+/* add a new kcontrol object; call with card->controls_rwsem locked */
+static int __snd_ctl_add(struct snd_card *card, struct snd_kcontrol *kcontrol)
+{
+	struct snd_ctl_elem_id id;
+	unsigned int idx;
+	unsigned int count;
+
+	id = kcontrol->id;
+	if (id.index > UINT_MAX - kcontrol->count)
+		return -EINVAL;
+
+	if (snd_ctl_find_id(card, &id)) {
+		dev_err(card->dev,
+			"control %i:%i:%i:%s:%i is already present\n",
+			id.iface, id.device, id.subdevice, id.name, id.index);
+		return -EBUSY;
+	}
+
+	if (snd_ctl_find_hole(card, kcontrol->count) < 0)
+		return -ENOMEM;
+
+	list_add_tail(&kcontrol->list, &card->controls);
+	card->controls_count += kcontrol->count;
+	kcontrol->id.numid = card->last_numid + 1;
+	card->last_numid += kcontrol->count;
+
+	id = kcontrol->id;
+	count = kcontrol->count;
+	for (idx = 0; idx < count; idx++, id.index++, id.numid++)
+		snd_ctl_notify(card, SNDRV_CTL_EVENT_MASK_ADD, &id);
+
+	return 0;
+}
+
 /**
  * snd_ctl_add - add the control instance to the card
  * @card: the card instance
@@ -363,45 +398,18 @@ static int snd_ctl_find_hole(struct snd_card *card, unsigned int count)
  */
 int snd_ctl_add(struct snd_card *card, struct snd_kcontrol *kcontrol)
 {
-	struct snd_ctl_elem_id id;
-	unsigned int idx;
-	unsigned int count;
 	int err = -EINVAL;
 
 	if (! kcontrol)
 		return err;
 	if (snd_BUG_ON(!card || !kcontrol->info))
 		goto error;
-	id = kcontrol->id;
-	if (id.index > UINT_MAX - kcontrol->count)
-		goto error;
 
 	down_write(&card->controls_rwsem);
-	if (snd_ctl_find_id(card, &id)) {
-		up_write(&card->controls_rwsem);
-		dev_err(card->dev, "control %i:%i:%i:%s:%i is already present\n",
-					id.iface,
-					id.device,
-					id.subdevice,
-					id.name,
-					id.index);
-		err = -EBUSY;
-		goto error;
-	}
-	if (snd_ctl_find_hole(card, kcontrol->count) < 0) {
-		up_write(&card->controls_rwsem);
-		err = -ENOMEM;
-		goto error;
-	}
-	list_add_tail(&kcontrol->list, &card->controls);
-	card->controls_count += kcontrol->count;
-	kcontrol->id.numid = card->last_numid + 1;
-	card->last_numid += kcontrol->count;
-	id = kcontrol->id;
-	count = kcontrol->count;
+	err = __snd_ctl_add(card, kcontrol);
 	up_write(&card->controls_rwsem);
-	for (idx = 0; idx < count; idx++, id.index++, id.numid++)
-		snd_ctl_notify(card, SNDRV_CTL_EVENT_MASK_ADD, &id);
+	if (err < 0)
+		goto error;
 	return 0;
 
  error:
@@ -752,7 +760,7 @@ static int snd_ctl_elem_list(struct snd_card *card,
 	struct snd_ctl_elem_id id;
 	unsigned int offset, space, jidx;
 	int err = 0;
-	
+
 	if (copy_from_user(&list, _list, sizeof(list)))
 		return -EFAULT;
 	offset = list.offset;
@@ -826,7 +834,7 @@ static int snd_ctl_elem_info(struct snd_ctl_file *ctl,
 	struct snd_kcontrol_volatile *vd;
 	unsigned int index_offset;
 	int result;
-	
+
 	down_read(&card->controls_rwsem);
 	kctl = snd_ctl_find_id(card, &info->id);
 	if (kctl == NULL) {
@@ -888,7 +896,7 @@ static int snd_ctl_elem_read(struct snd_card *card,
 
 	index_offset = snd_ctl_get_ioff(kctl, &control->id);
 	vd = &kctl->vd[index_offset];
-	if (!(vd->access & SNDRV_CTL_ELEM_ACCESS_READ) && kctl->get == NULL)
+	if (!(vd->access & SNDRV_CTL_ELEM_ACCESS_READ) || kctl->get == NULL)
 		return -EPERM;
 
 	snd_ctl_build_ioff(&control->id, kctl, index_offset);
@@ -991,7 +999,7 @@ static int snd_ctl_elem_lock(struct snd_ctl_file *file,
 	struct snd_kcontrol *kctl;
 	struct snd_kcontrol_volatile *vd;
 	int result;
-	
+
 	if (copy_from_user(&id, _id, sizeof(id)))
 		return -EFAULT;
 	down_write(&card->controls_rwsem);
@@ -1019,7 +1027,7 @@ static int snd_ctl_elem_unlock(struct snd_ctl_file *file,
 	struct snd_kcontrol *kctl;
 	struct snd_kcontrol_volatile *vd;
 	int result;
-	
+
 	if (copy_from_user(&id, _id, sizeof(id)))
 		return -EFAULT;
 	down_write(&card->controls_rwsem);
@@ -1129,7 +1137,7 @@ static int replace_user_tlv(struct snd_kcontrol *kctl, unsigned int __user *buf,
 	if (size > 1024 * 128)	/* sane value */
 		return -EINVAL;
 
-	container = memdup_user(buf, size);
+	container = vmemdup_user(buf, size);
 	if (IS_ERR(container))
 		return PTR_ERR(container);
 
@@ -1137,7 +1145,7 @@ static int replace_user_tlv(struct snd_kcontrol *kctl, unsigned int __user *buf,
 	if (!change)
 		change = memcmp(ue->tlv_data, container, size) != 0;
 	if (!change) {
-		kfree(container);
+		kvfree(container);
 		return 0;
 	}
 
@@ -1148,7 +1156,7 @@ static int replace_user_tlv(struct snd_kcontrol *kctl, unsigned int __user *buf,
 		mask = SNDRV_CTL_EVENT_MASK_INFO;
 	}
 
-	kfree(ue->tlv_data);
+	kvfree(ue->tlv_data);
 	ue->tlv_data = container;
 	ue->tlv_data_size = size;
 
@@ -1197,7 +1205,7 @@ static int snd_ctl_elem_init_enum_names(struct user_element *ue)
 	if (ue->info.value.enumerated.names_length > 64 * 1024)
 		return -EINVAL;
 
-	names = memdup_user((const void __user *)user_ptrval,
+	names = vmemdup_user((const void __user *)user_ptrval,
 		ue->info.value.enumerated.names_length);
 	if (IS_ERR(names))
 		return PTR_ERR(names);
@@ -1208,7 +1216,7 @@ static int snd_ctl_elem_init_enum_names(struct user_element *ue)
 	for (i = 0; i < ue->info.value.enumerated.items; ++i) {
 		name_len = strnlen(p, buf_len);
 		if (name_len == 0 || name_len >= 64 || name_len == buf_len) {
-			kfree(names);
+			kvfree(names);
 			return -EINVAL;
 		}
 		p += name_len + 1;
@@ -1225,8 +1233,8 @@ static void snd_ctl_elem_user_free(struct snd_kcontrol *kcontrol)
 {
 	struct user_element *ue = kcontrol->private_data;
 
-	kfree(ue->tlv_data);
-	kfree(ue->priv_data);
+	kvfree(ue->tlv_data);
+	kvfree(ue->priv_data);
 	kfree(ue);
 }
 
@@ -1360,9 +1368,12 @@ static int snd_ctl_elem_add(struct snd_ctl_file *file,
 		kctl->tlv.c = snd_ctl_elem_user_tlv;
 
 	/* This function manage to free the instance on failure. */
-	err = snd_ctl_add(card, kctl);
-	if (err < 0)
-		return err;
+	down_write(&card->controls_rwsem);
+	err = __snd_ctl_add(card, kctl);
+	if (err < 0) {
+		snd_ctl_free_one(kctl);
+		goto unlock;
+	}
 	offset = snd_ctl_get_ioff(kctl, &info->id);
 	snd_ctl_build_ioff(&info->id, kctl, offset);
 	/*
@@ -1373,10 +1384,10 @@ static int snd_ctl_elem_add(struct snd_ctl_file *file,
 	 * which locks the element.
 	 */
 
-	down_write(&card->controls_rwsem);
 	card->user_ctl_count++;
-	up_write(&card->controls_rwsem);
 
+ unlock:
+	up_write(&card->controls_rwsem);
 	return 0;
 }
 
@@ -1491,7 +1502,7 @@ static int snd_ctl_tlv_ioctl(struct snd_ctl_file *file,
                              int op_flag)
 {
 	struct snd_ctl_tlv header;
-	unsigned int *container;
+	unsigned int __user *container;
 	unsigned int container_size;
 	struct snd_kcontrol *kctl;
 	struct snd_ctl_elem_id id;
@@ -1666,9 +1677,9 @@ static ssize_t snd_ctl_read(struct file *file, char __user *buffer,
       	return result > 0 ? result : err;
 }
 
-static unsigned int snd_ctl_poll(struct file *file, poll_table * wait)
+static __poll_t snd_ctl_poll(struct file *file, poll_table * wait)
 {
-	unsigned int mask;
+	__poll_t mask;
 	struct snd_ctl_file *ctl;
 
 	ctl = file->private_data;
@@ -1678,7 +1689,7 @@ static unsigned int snd_ctl_poll(struct file *file, poll_table * wait)
 
 	mask = 0;
 	if (!list_empty(&ctl->events))
-		mask |= POLLIN | POLLRDNORM;
+		mask |= EPOLLIN | EPOLLRDNORM;
 
 	return mask;
 }

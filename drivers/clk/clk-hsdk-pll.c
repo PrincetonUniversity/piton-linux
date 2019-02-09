@@ -139,7 +139,7 @@ static inline void hsdk_pll_set_cfg(struct hsdk_pll_clk *clk,
 	val |= cfg->odiv << CGU_PLL_CTRL_ODIV_SHIFT;
 	val |= cfg->band << CGU_PLL_CTRL_BAND_SHIFT;
 
-	dev_dbg(clk->dev, "write configurarion: %#x\n", val);
+	dev_dbg(clk->dev, "write configuration: %#x\n", val);
 
 	hsdk_pll_write(clk, CGU_PLL_CTRL, val);
 }
@@ -169,7 +169,7 @@ static unsigned long hsdk_pll_recalc_rate(struct clk_hw *hw,
 
 	val = hsdk_pll_read(clk, CGU_PLL_CTRL);
 
-	dev_dbg(clk->dev, "current configurarion: %#x\n", val);
+	dev_dbg(clk->dev, "current configuration: %#x\n", val);
 
 	/* Check if PLL is disabled */
 	if (val & CGU_PLL_CTRL_PD)
@@ -390,13 +390,13 @@ static void __init of_hsdk_pll_clk_setup(struct device_node *node)
 
 	ret = clk_hw_register(NULL, &pll_clk->hw);
 	if (ret) {
-		pr_err("failed to register %s clock\n", node->name);
+		pr_err("failed to register %pOFn clock\n", node);
 		goto err_unmap_spec_regs;
 	}
 
 	ret = of_clk_add_hw_provider(node, of_clk_hw_simple_get, &pll_clk->hw);
 	if (ret) {
-		pr_err("failed to add hw provider for %s clock\n", node->name);
+		pr_err("failed to add hw provider for %pOFn clock\n", node);
 		goto err_unmap_spec_regs;
 	}
 

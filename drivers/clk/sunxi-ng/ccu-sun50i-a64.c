@@ -64,17 +64,19 @@ static SUNXI_CCU_NM_WITH_GATE_LOCK(pll_audio_base_clk, "pll-audio-base",
 				   BIT(28),	/* lock */
 				   CLK_SET_RATE_UNGATE);
 
-static SUNXI_CCU_NM_WITH_FRAC_GATE_LOCK(pll_video0_clk, "pll-video0",
-					"osc24M", 0x010,
-					8, 7,		/* N */
-					0, 4,		/* M */
-					BIT(24),	/* frac enable */
-					BIT(25),	/* frac select */
-					270000000,	/* frac rate 0 */
-					297000000,	/* frac rate 1 */
-					BIT(31),	/* gate */
-					BIT(28),	/* lock */
-					CLK_SET_RATE_UNGATE);
+static SUNXI_CCU_NM_WITH_FRAC_GATE_LOCK_MIN_MAX(pll_video0_clk, "pll-video0",
+						"osc24M", 0x010,
+						192000000,	/* Minimum rate */
+						1008000000,	/* Maximum rate */
+						8, 7,		/* N */
+						0, 4,		/* M */
+						BIT(24),	/* frac enable */
+						BIT(25),	/* frac select */
+						270000000,	/* frac rate 0 */
+						297000000,	/* frac rate 1 */
+						BIT(31),	/* gate */
+						BIT(28),	/* lock */
+						CLK_SET_RATE_UNGATE);
 
 static SUNXI_CCU_NM_WITH_FRAC_GATE_LOCK(pll_ve_clk, "pll-ve",
 					"osc24M", 0x018,
@@ -125,17 +127,19 @@ static struct ccu_nk pll_periph1_clk = {
 	},
 };
 
-static SUNXI_CCU_NM_WITH_FRAC_GATE_LOCK(pll_video1_clk, "pll-video1",
-					"osc24M", 0x030,
-					8, 7,		/* N */
-					0, 4,		/* M */
-					BIT(24),	/* frac enable */
-					BIT(25),	/* frac select */
-					270000000,	/* frac rate 0 */
-					297000000,	/* frac rate 1 */
-					BIT(31),	/* gate */
-					BIT(28),	/* lock */
-					CLK_SET_RATE_UNGATE);
+static SUNXI_CCU_NM_WITH_FRAC_GATE_LOCK_MIN_MAX(pll_video1_clk, "pll-video1",
+						"osc24M", 0x030,
+						192000000,	/* Minimum rate */
+						1008000000,	/* Maximum rate */
+						8, 7,		/* N */
+						0, 4,		/* M */
+						BIT(24),	/* frac enable */
+						BIT(25),	/* frac select */
+						270000000,	/* frac rate 0 */
+						297000000,	/* frac rate 1 */
+						BIT(31),	/* gate */
+						BIT(28),	/* lock */
+						CLK_SET_RATE_UNGATE);
 
 static SUNXI_CCU_NM_WITH_FRAC_GATE_LOCK(pll_gpu_clk, "pll-gpu",
 					"osc24M", 0x038,
@@ -400,28 +404,45 @@ static SUNXI_CCU_MP_WITH_MUX_GATE(nand_clk, "nand", mod0_default_parents, 0x080,
 				  BIT(31),	/* gate */
 				  0);
 
+/*
+ * MMC clocks are the new timing mode (see A83T & H3) variety, but without
+ * the mode switch. This means they have a 2x post divider between the clock
+ * and the MMC module. This is not documented in the manual, but is taken
+ * into consideration when setting the mmc module clocks in the BSP kernel.
+ * Without it, MMC performance is degraded.
+ *
+ * We model it here to be consistent with other SoCs supporting this mode.
+ * The alternative would be to add the 2x multiplier when setting the MMC
+ * module clock in the MMC driver, just for the A64.
+ */
 static const char * const mmc_default_parents[] = { "osc24M", "pll-periph0-2x",
 						    "pll-periph1-2x" };
-static SUNXI_CCU_MP_WITH_MUX_GATE(mmc0_clk, "mmc0", mmc_default_parents, 0x088,
-				  0, 4,		/* M */
-				  16, 2,	/* P */
-				  24, 2,	/* mux */
-				  BIT(31),	/* gate */
-				  0);
+static SUNXI_CCU_MP_WITH_MUX_GATE_POSTDIV(mmc0_clk, "mmc0",
+					  mmc_default_parents, 0x088,
+					  0, 4,		/* M */
+					  16, 2,	/* P */
+					  24, 2,	/* mux */
+					  BIT(31),	/* gate */
+					  2,		/* post-div */
+					  0);
 
-static SUNXI_CCU_MP_WITH_MUX_GATE(mmc1_clk, "mmc1", mmc_default_parents, 0x08c,
-				  0, 4,		/* M */
-				  16, 2,	/* P */
-				  24, 2,	/* mux */
-				  BIT(31),	/* gate */
-				  0);
+static SUNXI_CCU_MP_WITH_MUX_GATE_POSTDIV(mmc1_clk, "mmc1",
+					  mmc_default_parents, 0x08c,
+					  0, 4,		/* M */
+					  16, 2,	/* P */
+					  24, 2,	/* mux */
+					  BIT(31),	/* gate */
+					  2,		/* post-div */
+					  0);
 
-static SUNXI_CCU_MP_WITH_MUX_GATE(mmc2_clk, "mmc2", mmc_default_parents, 0x090,
-				  0, 4,		/* M */
-				  16, 2,	/* P */
-				  24, 2,	/* mux */
-				  BIT(31),	/* gate */
-				  0);
+static SUNXI_CCU_MP_WITH_MUX_GATE_POSTDIV(mmc2_clk, "mmc2",
+					  mmc_default_parents, 0x090,
+					  0, 4,		/* M */
+					  16, 2,	/* P */
+					  24, 2,	/* mux */
+					  BIT(31),	/* gate */
+					  2,		/* post-div */
+					  0);
 
 static const char * const ts_parents[] = { "osc24M", "pll-periph0", };
 static SUNXI_CCU_MP_WITH_MUX_GATE(ts_clk, "ts", ts_parents, 0x098,
