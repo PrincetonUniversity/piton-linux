@@ -543,7 +543,7 @@ source "drivers/char/xillybus/Kconfig"
 config ADI
 	tristate "SPARC Privileged ADI driver"
 	depends on SPARC64
-	default m
+	default n
 	help
 	  SPARC M7 and newer processors utilize ADI (Application Data
 	  Integrity) to version and protect memory.  This driver provides
