@@ -504,6 +504,12 @@ static void sun4v_irq_eoi(struct irq_data *data)
 	if (err != HV_EOK)
 		printk(KERN_ERR "sun4v_intr_setstate(%x): "
 		       "err(%d)\n", ino, err);
+
+    if (ino == 0x11) {
+        sunhv_writeb(0x1, (void *) 0x9f00000000);
+    } else if (ino == 0x3f) {
+        sunhv_writeb(0x1, (void *) 0x9f00000000);
+    }
 }
 
 static void sun4v_virq_enable(struct irq_data *data)
