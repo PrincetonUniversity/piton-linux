@@ -1,0 +1,26 @@
+#
+# Xilink device configuration
+#
+
+config NET_VENDOR_LOWRISC
+	bool "Lowrisc devices"
+	default y
+	depends on RISCV
+	---help---
+	  If you have a network (Ethernet) card belonging to this class, say Y.
+
+	  Note that the answer to this question doesn't directly affect the
+	  kernel: saying N will just cause the configurator to skip all
+	  the questions about Lowrisc devices. If you say Y, you will be asked
+	  for your specific card in the following questions.
+
+if NET_VENDOR_LOWRISC
+
+config LOWRISC_DIGILENT_100MHZ
+	tristate "Lowrisc 100MHz Ethernet Nexys4_DDR support"
+	depends on RISCV
+	select PHYLIB
+	---help---
+	  This driver supports the 100MHz Ethernet for Nexys4_DDR Digilent boards from Lowrisc.
+
+endif # NET_VENDOR_LOWRISC

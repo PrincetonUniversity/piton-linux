@@ -938,6 +938,12 @@ config MMC_BCM2835
 
 	  If unsure, say N.
 
+config MMC_LOWRISC
+        tristate "LowRISC SD/MMC Card Interface Driver"
+        depends on RISCV
+        help
+          This selects the LowRISC SD-card driver based on Nexys4-DDR from Digilent
+
 config MMC_MTK
 	tristate "MediaTek SD/MMC Card Interface support"
 	depends on HAS_DMA
