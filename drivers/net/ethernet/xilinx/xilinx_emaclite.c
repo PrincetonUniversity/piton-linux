@@ -99,7 +99,7 @@
 #define ALIGNMENT		4
 
 /* BUFFER_ALIGN(adr) calculates the number of bytes to the next alignment. */
-#define BUFFER_ALIGN(adr) ((ALIGNMENT - ((u32)adr)) % ALIGNMENT)
+#define BUFFER_ALIGN(adr) ((ALIGNMENT - ((u64)adr)) % ALIGNMENT)
 
 #ifdef __BIG_ENDIAN
 #define xemaclite_readl		ioread32be
@@ -340,7 +340,7 @@ static int xemaclite_send_data(struct net_local *drvdata, u8 *data,
 		 * if it is configured in HW
 		 */
 
-		addr = (void __iomem __force *)((u32 __force)addr ^
+		addr = (void __iomem __force *)((u64 __force)addr ^
 						 XEL_BUFFER_OFFSET);
 		reg_data = xemaclite_readl(addr + XEL_TSR_OFFSET);
 
@@ -401,7 +401,7 @@ static u16 xemaclite_recv_data(struct net_local *drvdata, u8 *data, int maxlen)
 		 * will correct on subsequent calls
 		 */
 		if (drvdata->rx_ping_pong != 0)
-			addr = (void __iomem __force *)((u32 __force)addr ^
+			addr = (void __iomem __force *)((u64 __force)addr ^
 							 XEL_BUFFER_OFFSET);
 		else
 			return 0;	/* No data was available */
@@ -1176,9 +1176,9 @@ static int xemaclite_of_probe(struct platform_device *ofdev)
 	}
 
 	dev_info(dev,
-		 "Xilinx EmacLite at 0x%08X mapped to 0x%08X, irq=%d\n",
-		 (unsigned int __force)ndev->mem_start,
-		 (unsigned int __force)lp->base_addr, ndev->irq);
+		 "Xilinx EmacLite at 0x%p mapped to 0x%p, irq=%d\n",
+		 (void *)ndev->mem_start,
+		 lp->base_addr, ndev->irq);
 	return 0;
 
 error:
