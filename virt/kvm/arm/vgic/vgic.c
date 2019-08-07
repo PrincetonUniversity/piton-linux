@@ -1,17 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2015, 2016 ARM Ltd.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <linux/interrupt.h>
@@ -149,6 +138,27 @@ void vgic_put_irq(struct kvm *kvm, struct vgic_irq *irq)
 	raw_spin_unlock_irqrestore(&dist->lpi_list_lock, flags);
 
 	kfree(irq);
+}
+
+void vgic_flush_pending_lpis(struct kvm_vcpu *vcpu)
+{
+	struct vgic_cpu *vgic_cpu = &vcpu->arch.vgic_cpu;
+	struct vgic_irq *irq, *tmp;
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&vgic_cpu->ap_list_lock, flags);
+
+	list_for_each_entry_safe(irq, tmp, &vgic_cpu->ap_list_head, ap_list) {
+		if (irq->intid >= VGIC_MIN_LPI) {
+			raw_spin_lock(&irq->irq_lock);
+			list_del(&irq->ap_list);
+			irq->vcpu = NULL;
+			raw_spin_unlock(&irq->irq_lock);
+			vgic_put_irq(vcpu->kvm, irq);
+		}
+	}
+
+	raw_spin_unlock_irqrestore(&vgic_cpu->ap_list_lock, flags);
 }
 
 void vgic_irq_set_phys_pending(struct vgic_irq *irq, bool pending)

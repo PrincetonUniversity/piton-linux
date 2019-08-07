@@ -1,6 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright 2006 Andi Kleen, SUSE Labs.
- * Subject to the GNU Public License, v.2
  *
  * Fast user context implementation of clock_gettime, gettimeofday, and time.
  *
@@ -29,12 +29,12 @@ extern int __vdso_gettimeofday(struct timeval *tv, struct timezone *tz);
 extern time_t __vdso_time(time_t *t);
 
 #ifdef CONFIG_PARAVIRT_CLOCK
-extern u8 pvclock_page
+extern u8 pvclock_page[PAGE_SIZE]
 	__attribute__((visibility("hidden")));
 #endif
 
 #ifdef CONFIG_HYPERV_TSCPAGE
-extern u8 hvclock_page
+extern u8 hvclock_page[PAGE_SIZE]
 	__attribute__((visibility("hidden")));
 #endif
 
@@ -128,13 +128,24 @@ notrace static inline u64 vgetcyc(int mode)
 {
 	if (mode == VCLOCK_TSC)
 		return (u64)rdtsc_ordered();
+
+	/*
+	 * For any memory-mapped vclock type, we need to make sure that gcc
+	 * doesn't cleverly hoist a load before the mode check.  Otherwise we
+	 * might end up touching the memory-mapped page even if the vclock in
+	 * question isn't enabled, which will segfault.  Hence the barriers.
+	 */
 #ifdef CONFIG_PARAVIRT_CLOCK
-	else if (mode == VCLOCK_PVCLOCK)
+	if (mode == VCLOCK_PVCLOCK) {
+		barrier();
 		return vread_pvclock();
+	}
 #endif
 #ifdef CONFIG_HYPERV_TSCPAGE
-	else if (mode == VCLOCK_HVCLOCK)
+	if (mode == VCLOCK_HVCLOCK) {
+		barrier();
 		return vread_hvclock();
+	}
 #endif
 	return U64_MAX;
 }

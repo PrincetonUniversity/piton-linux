@@ -1,13 +1,10 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  *  linux/include/linux/clk.h
  *
  *  Copyright (C) 2004 ARM Limited.
  *  Written by Deep Blue Solutions Limited.
  *  Copyright (C) 2011-2012 Linaro Ltd <mturquette@linaro.org>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 #ifndef __LINUX_CLK_H
 #define __LINUX_CLK_H
@@ -809,6 +806,22 @@ static inline long clk_round_rate(struct clk *clk, unsigned long rate)
 static inline bool clk_has_parent(struct clk *clk, struct clk *parent)
 {
 	return true;
+}
+
+static inline int clk_set_rate_range(struct clk *clk, unsigned long min,
+				     unsigned long max)
+{
+	return 0;
+}
+
+static inline int clk_set_min_rate(struct clk *clk, unsigned long rate)
+{
+	return 0;
+}
+
+static inline int clk_set_max_rate(struct clk *clk, unsigned long rate)
+{
+	return 0;
 }
 
 static inline int clk_set_parent(struct clk *clk, struct clk *parent)
