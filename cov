@@ -1,0 +1,73 @@
+The Supervisor Binary Interface(SBI) specification[1] now defines a
+base extension that provides extendability to add future extensions
+while maintaining backward compatibility with previous versions.
+The new version is defined as 0.2 and older version is marked as 0.1.
+
+This series adds following features to RISC-V Linux.
+1. Adds support for SBI v0.2
+2. A Unified calling convention implementation between 0.1 and 0.2. 
+3. SBI Hart state management extension (HSM)
+4. Ordered booting of harts
+4. CPU hotplug 
+
+Dependencies:
+The support for SBI v0.2 and HSM extension is already available in OpenSBI
+master.
+
+[1] https://github.com/riscv/riscv-sbi-doc/blob/master/riscv-sbi.adoc
+
+The patches are also available in following github repositery.
+
+Linux Kernel: https://github.com/atishp04/linux/tree/sbi_v0.2_v10
+
+Patches 1-5 implements the SBI v0.2 and unified calling convention.
+Patches 6-7 adds a cpu_ops method that allows different booting protocols
+dynamically.
+Patches 9-10 adds HSM extension and ordered hart booting support.
+Patche  11 adds cpu hotplug support.
+
+Changes from v9->10:
+1. Minor copyright fixes.
+2. Renaming of HSM extension definitions to match the spec.
+ 
+Changes from v8->v9:
+1. Added a sliding window hart base method to support larger hart masks.
+2. Added a callback to disable interrupts when cpu go offline.
+3. Made the HSM extension series more modular.
+
+Changes from v7-v8:
+1. Refactored to code to have modular cpu_ops calls.
+2. Refactored HSM extension from sbi.c to cpu_ops_sbi.c.
+3. Fix plic driver to handle cpu hotplug.
+
+Changes from v6-v7:
+1. Rebased on v5.5
+2. Fixed few compilation issues for !CONFIG_SMP and !CONFIG_RISCV_SBI
+3. Added SBI HSM extension
+4. Add CPU hotplug support
+
+Changes from v5->v6
+1. Fixed few compilation issues around config.
+2. Fixed hart mask generation issues for RFENCE & IPI extensions.
+
+Changes from v4->v5
+1. Fixed few minor comments related to static & inline.
+2. Make sure that every patch is boot tested individually.
+
+Changes from v3->v4.
+1. Rebased on for-next.
+2. Fixed issuses with checkpatch --strict.
+3. Unfied all IPI/fence related functions.
+4. Added Hfence related SBI calls.
+
+Changes from v2->v3.
+1. Moved v0.1 extensions to a new config.
+2. Added support for relacement extensions of v0.1 extensions.
+
+Changes from v1->v2
+1. Removed the legacy calling convention.
+2. Moved all SBI related calls to sbi.c.
+3. Moved all SBI related macros to uapi.
+
+option-subject Add support for SBI v0.2 and CPU hotplug
+option-prefix PATCH v10
