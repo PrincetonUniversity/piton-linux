@@ -106,7 +106,7 @@ config VA_BITS
 config PA_BITS
 	int
 	default 34 if 32BIT
-	default 56 if 64BIT
+	default 39 if 64BIT
 
 config PAGE_OFFSET
 	hex

@@ -457,5 +457,10 @@ config BLK_DEV_RSXX
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called rsxx.
+config OPENPITON_ARIANE_RAMDISK
+    tristate "OpenPiton+Ariane FPGA SD ramdisk device driver"
+    default n
+    help
+        Support for the ramdisk for OpenPiton+Ariane running on FPGA booting from SD card.
 
 endif # BLK_DEV

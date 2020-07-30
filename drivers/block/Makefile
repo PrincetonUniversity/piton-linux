@@ -19,6 +19,7 @@ obj-$(CONFIG_BLK_DEV_LOOP)	+= loop.o
 obj-$(CONFIG_XILINX_SYSACE)	+= xsysace.o
 obj-$(CONFIG_CDROM_PKTCDVD)	+= pktcdvd.o
 obj-$(CONFIG_SUNVDC)		+= sunvdc.o
+obj-$(CONFIG_OPENPITON_ARIANE_RAMDISK) += piton_sd.o
 obj-$(CONFIG_BLK_DEV_SKD)	+= skd.o
 
 obj-$(CONFIG_BLK_DEV_UMEM)	+= umem.o
