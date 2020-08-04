@@ -68,6 +68,6 @@ SYSCALL_DEFINE3(riscv_flush_icache, uintptr_t, start, uintptr_t, end,
 
 SYSCALL_DEFINE0(riscv_conf_iommu) {
     uint64_t base = (uint64_t)(current->mm->pgd);
-    printk("PT base address %p\n", base);
+    printk("PT base address %p\n", current->mm->pgd);
     return base;
 }
