@@ -67,7 +67,8 @@ SYSCALL_DEFINE3(riscv_flush_icache, uintptr_t, start, uintptr_t, end,
 }
 
 SYSCALL_DEFINE0(riscv_conf_iommu) {
-    uint64_t base = (uint64_t)(current->mm->pgd);
-    printk("PT base address %p\n", current->mm->pgd);
-    return base;
+    unsigned long pfn = virt_to_pfn(current->mm->pgd) | SATP_MODE; 
+    //printk("PT base pfn %p\n", (void *)(pfn) );
+    //printk("PT base address %p\n", (void *)(pfn << 12) );
+    return pfn;
 }
